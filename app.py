@@ -67,6 +67,12 @@ def update_student(sid, first, last, dob):
     )
     conn.commit()
 
+# Fetch all students
+def get_all_students():
+    return pd.read_sql(
+        "SELECT * FROM students ORDER BY last_name, first_name", conn
+    )
+
 # Dance functions
 
 def add_dance(name, dtype, student_ids):
