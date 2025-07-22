@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import date
 import os
 
+# ensure data directory exists before payment_plan connects
+os.makedirs("data", exist_ok=True)
 import payment_plan
 
 # --- DATABASE SETUP ---
