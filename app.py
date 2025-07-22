@@ -157,11 +157,20 @@ def get_competitions_for_student(sid):
         " WHERE cs.student_id = ?", conn, params=(sid,)
     )
 
+import os, streamlit as st
+
+st.write("PWD:", os.getcwd())
+st.write("Top-level files:", os.listdir(os.getcwd()))
+if os.path.isdir(".streamlit"):
+    st.write(".streamlit files:", os.listdir(".streamlit"))
+else:
+    st.write("❌ No .streamlit folder found here.")
+st.stop()   # halt so you can inspect
+
+
 # --- Authentication Setup ---
 import streamlit_authenticator as stauth
 
-st.write("DEBUG st.secrets:", st.secrets) 
-st.stop()
 
 # Load raw credentials from Streamlit secrets
 raw_creds = st.secrets.get("credentials", {})
