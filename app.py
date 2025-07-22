@@ -71,6 +71,13 @@ def get_students_for_dance(dance_id):
         WHERE ds.dance_id = ?
     """, conn, params=(dance_id,))
 
+def get_dances_for_student(student_id):
+    return pd.read_sql("""
+        SELECT d.name, d.type FROM dances d
+        JOIN dance_students ds ON ds.dance_id = d.id
+        WHERE ds.student_id = ?
+    """, conn, params=(student_id,))
+
 # --- UI ---
 st.set_page_config(page_title="Dance Studio Manager", layout="wide")
 menu = st.sidebar.selectbox("Navigate", ["📋 Students", "🕺 Dances", "🔍 Search"])
@@ -98,7 +105,14 @@ if menu == "📋 Students":
             st.success("Import complete.")
 
     st.subheader("All Students")
-    st.dataframe(get_all_students())
+    students_df = get_all_students()
+    selected_student = st.selectbox("View Student Profile", options=students_df["id"], format_func=lambda x: f"{students_df.loc[students_df.id == x, 'first_name'].values[0]} {students_df.loc[students_df.id == x, 'last_name'].values[0]}")
+    if selected_student:
+        student = students_df[students_df["id"] == selected_student].iloc[0]
+        st.markdown(f"### {student['first_name']} {student['last_name']}")
+        st.markdown(f"**DOB:** {student['dob']}")
+        st.markdown("**Dances:**")
+        st.dataframe(get_dances_for_student(student['id']))
 
 elif menu == "🕺 Dances":
     st.header("Create Dance")
@@ -106,11 +120,12 @@ elif menu == "🕺 Dances":
         name = st.text_input("Dance Name")
         dtype = st.selectbox("Dance Type", ["Solo", "Duet", "Trio", "Group"])
         student_df = get_all_students()
-        options = student_df.set_index("id").apply(lambda r: f"{r['first_name']} {r['last_name']}", axis=1).to_dict()
-        selected = st.multiselect("Select Dancers", options=options)
+        options = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in student_df.iterrows()}
+        selected_labels = st.multiselect("Select Dancers", options=list(options.keys()))
+        selected_ids = [options[label] for label in selected_labels]
         submit_dance = st.form_submit_button("Create Dance")
         if submit_dance:
-            add_dance(name, dtype, selected)
+            add_dance(name, dtype, selected_ids)
             st.success(f"Created dance: {name}")
 
     st.subheader("All Dances")
@@ -127,14 +142,10 @@ elif menu == "🔍 Search":
     search_term = st.text_input("Search by student name")
     if search_term:
         students = get_all_students()
-        matches = students[students.apply(lambda r: search_term.lower() in f"{r['first_name']} {r['last_name']}".lower(), axis=1)]
+        matches = students[students.apply(lambda r: search_term.lower() in f"{r['first_name']} {r['last_name']}", axis=1)]
         st.dataframe(matches)
         for _, row in matches.iterrows():
             st.markdown(f"### {row['first_name']} {row['last_name']}")
             st.markdown(f"**DOB**: {row['dob']}")
             st.markdown("**Dances:**")
-            st.dataframe(pd.read_sql("""
-                SELECT d.name, d.type FROM dances d
-                JOIN dance_students ds ON ds.dance_id = d.id
-                WHERE ds.student_id = ?
-            """, conn, params=(row['id'],)))
+            st.dataframe(get_dances_for_student(row['id']))
