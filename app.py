@@ -170,45 +170,58 @@ st.title("Dance Studio Manager")
 
 # Students Page
 if menu == "📋 Students":
-    # Manage Students: Add & Edit
-    with st.expander("Manage Students", expanded=False):
-        # Load current students
-        students_df = get_all_students()
-        student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-        # Add Student Form
-        with st.form("add_student_form"):
-            fn = st.text_input("First Name", key="add_fn")
-            ln = st.text_input("Last Name", key="add_ln")
-            dob = st.date_input("Date of Birth", min_value=date(1900, 1, 1), key="add_dob")
-            if st.form_submit_button("Add Student", key="btn_add_student"):
-                add_student(fn, ln, dob.isoformat())
-                st.success(f"Added {fn} {ln}")
-        st.markdown("---")
-        # Edit Student Form
-        with st.form("edit_student_form"):
-            edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_select")
-            if edit_sel and edit_sel != "--":
-                sid = student_map[edit_sel]
-                stu = students_df[students_df.id == sid].iloc[0]
-                fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
-                ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
-                dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
-            else:
-                sid = None
-                fn2 = ln2 = dob2 = None
-            if st.form_submit_button("Update Student", key="btn_update_student"):
-                if sid:
-                    update_student(sid, fn2, ln2, dob2.isoformat())
-                    st.success(f"Updated {fn2} {ln2}")
-    st.markdown("---")
-    # Profile Viewer
+    # Load current students
     students_df = get_all_students()
     student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-    sel = st.selectbox("View Student Profile", ["--"] + list(student_map.keys()), key="view_select")
-    if sel and sel != "--":
-        sid = student_map[sel]
+
+    # Add Student Form
+    st.subheader("Add New Student")
+    with st.form("add_student_form"):
+        fn = st.text_input("First Name", key="add_fn")
+        ln = st.text_input("Last Name", key="add_ln")
+        dob = st.date_input("Date of Birth", min_value=date(1900, 1, 1), key="add_dob")
+        submitted_add = st.form_submit_button("Add Student")
+    if submitted_add:
+        if fn and ln:
+            add_student(fn, ln, dob.isoformat())
+            st.success(f"Added {fn} {ln}")
+            st.experimental_rerun()
+        else:
+            st.error("Please enter first and last name.")
+
+    st.markdown("---")
+
+    # Edit Student Form
+    st.subheader("Edit Existing Student")
+    with st.form("edit_student_form"):
+        edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
+        if edit_sel and edit_sel != "--":
+            sid = student_map[edit_sel]
+            stu = students_df[students_df.id == sid].iloc[0]
+            fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
+            ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
+            dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
+        else:
+            sid = None
+            fn2 = ln2 = dob2 = None
+        submitted_edit = st.form_submit_button("Update Student")
+    if submitted_edit:
+        if sid and fn2 and ln2:
+            update_student(sid, fn2, ln2, dob2.isoformat())
+            st.success(f"Updated {fn2} {ln2}")
+            st.experimental_rerun()
+        else:
+            st.error("Select a student and ensure names are provided.")
+
+    st.markdown("---")
+
+    # Profile Viewer
+    st.subheader("View Student Profile")
+    sel_view = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="view_sel")
+    if sel_view and sel_view != "--":
+        sid = student_map[sel_view]
         stu = students_df[students_df.id == sid].iloc[0]
-        st.subheader(f"{stu['first_name']} {stu['last_name']}")
+        st.markdown(f"### {stu['first_name']} {stu['last_name']}")
         st.write(f"**DOB:** {stu['dob']}")
         # Dances
         st.write("**Dances:**")
