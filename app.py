@@ -292,23 +292,29 @@ elif menu == "🕺 Dances":
                 did = options[choice]
                 current = dance_df[dance_df.id == did].iloc[0]
                 dtype = current['type']
+                # Editable name
                 new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
+                # Member labels
                 df_members = get_students_for_dance(did)
-                labels = [f"{nm.split(' ',1)[1]}, {nm.split(' ',1)[0]}" for nm in df_members['name'].tolist()]
-                selm = st.multiselect("Members", list(student_map.keys()), default=labels, key="dance_edit_members")
-                limits = {"Solo": 1, "Duet": 2, "Trio": 3, "Group": None}
+                labels = []
+                for nm in df_members['name'].tolist():
+                    parts = nm.split(' ',1)
+                    if len(parts)==2:
+                        labels.append(f"{parts[1]}, {parts[0]}")
+                selm = st.multiselect("Members", options=list(student_map.keys()), default=labels, key="dance_edit_members")
+                # Enforce selection limits
+                limits = {"Solo":1, "Duet":2, "Trio":3, "Group":None}
                 max_sel = limits.get(dtype)
                 if st.button("Update Dance", key="btn_edit_dance"):
-    sel_ids = [student_map[s] for s in selm]
-    if max_sel is not None and len(sel_ids) != max_sel:
-        st.error(f"{dtype} requires exactly {max_sel} student(s).")
-    else:
-        update_dance(did, new_name, sel_ids)
-        st.success("Dance updated.")
-if st.button("Delete Dance", key="btn_delete_dance"):
-    delete_dance(did)
-    st.success(f"Deleted dance '{current['name']}'")
-
+                    sel_ids = [student_map[s] for s in selm]
+                    if max_sel is not None and len(sel_ids)!=max_sel:
+                        st.error(f"{dtype} requires exactly {max_sel} student(s).")
+                    else:
+                        update_dance(did, new_name, sel_ids)
+                        st.success("Dance updated.")
+                if st.button("Delete Dance", key="btn_delete_dance"):
+                    delete_dance(did)
+                    st.success(f"Deleted dance '{current['name']}'")
     # Display lists in order
     dance_df = get_all_dances()
     for dtype in ["Solo", "Duet", "Trio", "Group"]:
