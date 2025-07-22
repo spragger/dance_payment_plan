@@ -354,7 +354,10 @@ elif menu == "🕺 Dances":
                     c.execute("DELETE FROM competitions WHERE id=?", (cid,))
                     conn.commit()
                     st.success(f"Deleted competition '{current['name']}'")
-    with st.expander("Competitions List", expanded=False):(f"{dtype} List", expanded=False):
+        # Show lists in order
+    all_d = get_all_dances()
+    for dtype in ["Solo","Duet","Trio","Group"]:
+        with st.expander(f"{dtype} List", expanded=False):
             subset = all_d[all_d.type==dtype].sort_values('name')
             if subset.empty:
                 st.write("No dances.")
