@@ -177,15 +177,15 @@ if menu == "📋 Students":
     # Add New Student
     st.subheader("Add New Student")
     with st.form("add_student_form"):
-        fn = st.text_input("First Name", key="add_fn")
-        ln = st.text_input("Last Name", key="add_ln")
-        dob = st.date_input("Date of Birth", min_value=date(1900, 1, 1), key="add_dob")
+        fn = st.text_input("First Name")
+        ln = st.text_input("Last Name")
+        dob = st.date_input("Date of Birth", min_value=date(1900,1,1))
         submitted_add = st.form_submit_button("Add Student")
     if submitted_add:
         if fn and ln:
             add_student(fn, ln, dob.isoformat())
             st.success(f"Added {fn} {ln}")
-            st.experimental_rerun()
+            # Refresh data by rerunning the app automatically on next interaction
         else:
             st.error("Please enter both first and last name.")
 
@@ -193,20 +193,20 @@ if menu == "📋 Students":
 
     # Edit Existing Student
     st.subheader("Edit Existing Student")
-    sel_edit = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
+    sel_edit = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()))
     if sel_edit and sel_edit != "--":
         sid = student_map[sel_edit]
         stu = students_df[students_df.id == sid].iloc[0]
         with st.form("edit_student_form"):
-            fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
-            ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
-            dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
+            fn2 = st.text_input("First Name", value=stu['first_name'])
+            ln2 = st.text_input("Last Name", value=stu['last_name'])
+            dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1))
             submitted_edit = st.form_submit_button("Update Student")
         if submitted_edit:
             if fn2 and ln2:
                 update_student(sid, fn2, ln2, dob2.isoformat())
                 st.success(f"Updated {fn2} {ln2}")
-                st.experimental_rerun()
+                # Changes will reflect on next rerun
             else:
                 st.error("Please enter both first and last name.")
 
@@ -214,7 +214,7 @@ if menu == "📋 Students":
 
     # View Student Profile
     st.subheader("View Student Profile")
-    sel_view = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="view_sel")
+    sel_view = st.selectbox("Select Student", ["--"] + list(student_map.keys()))
     if sel_view and sel_view != "--":
         sid = student_map[sel_view]
         stu = students_df[students_df.id == sid].iloc[0]
