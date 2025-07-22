@@ -124,7 +124,7 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
     add_total_line(f"Monthly Installment ({months} mo):", f"${installment:.2f}")
 
     # Return PDF as bytes
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output()
 
 
 # --- UI ---
