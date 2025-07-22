@@ -168,7 +168,7 @@ if sel_student and sel_student != "--":
         pdf.cell(40, 8, f"${remaining:.2f}", ln=1)
         pdf.cell(120, 8, f"Installments ({months} mo)", border=0)
         pdf.cell(40, 8, f"${installment:.2f}", ln=1)
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        pdf_bytes = pdf.output(dest='S')
         st.success("Payment plan saved and PDF generated.")
         st.download_button(
             "Download PDF", data=pdf_bytes,
