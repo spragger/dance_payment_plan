@@ -150,6 +150,13 @@ def get_students_for_competition(comp_id):
         conn, params=(comp_id,)
     )
 
+def get_competitions_for_student(sid):
+    return pd.read_sql(
+        "SELECT c.name AS name FROM competitions c"
+        " JOIN competition_students cs ON c.id = cs.competition_id"
+        " WHERE cs.student_id = ?", conn, params=(sid,)
+    )
+
 # UI Setup
 st.set_page_config(page_title="EDOT Company Manager", layout="wide")
 st.title("EDOT Company Manager")
@@ -227,7 +234,7 @@ if menu == "📋 Students":
         st.write(f"**DOB:** {stu['dob']}")
         # Dances
         st.write("**Dances:**")
-        df_d = get_students_for_dance(sid)
+        df_d = get_dances_for_student(sid)
         if df_d.empty:
             st.write("No dances.")
         else:
@@ -235,7 +242,7 @@ if menu == "📋 Students":
                 st.write(f"- {dance}")
         # Competitions
         st.write("**Competitions:**")
-        df_c = get_students_for_competition(sid)
+        df_c = get_competitions_for_student(sid)
         if df_c.empty:
             st.write("No competitions.")
         else:
