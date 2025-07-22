@@ -3,30 +3,16 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
-import streamlit_authenticator as stauth
 
-# --- USER AUTHENTICATION ---
-# Load credentials from st.secrets
-credentials = st.secrets['credentials'].to_dict()
-cookie_config = st.secrets['cookie']
+# Simple login check on a secondary page
+if st.session_state.get("authentication_status"):
 
-authenticator = stauth.Authenticate(
-    credentials,
-    cookie_config['name'],
-    cookie_config['key'],
-    cookie_config['expiry_days'],
-)
-
-authenticator.login()
-
-if st.session_state["authentication_status"]:
     # --- All application code must go INSIDE this block ---
-    authenticator.logout("Logout", "sidebar")
-    st.sidebar.title(f"Welcome {st.session_state['name']}")
 
     # --- DATABASE CONNECTION ---
-    BASE_DIR = os.path.dirname(__file__)
-    DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    # Path is relative to the pages directory, so we go up one level to find the data dir
+    DATA_DIR = os.path.join(BASE_DIR, "..", "data")
     DB_PATH = os.path.join(DATA_DIR, "dance.db")
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
@@ -159,8 +145,5 @@ if st.session_state["authentication_status"]:
     else:
         st.info("Select a student to begin.")
 
-elif st.session_state["authentication_status"] is False:
-    st.error("Username/password is incorrect")
-    
-elif st.session_state["authentication_status"] is None:
-    st.warning("Please enter your username and password")
+else:
+    st.warning("You must be logged in to see this page. Please go to the Home page to log in.")
