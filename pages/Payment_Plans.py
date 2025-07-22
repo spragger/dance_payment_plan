@@ -5,6 +5,8 @@ import os
 import io
 from fpdf import FPDF
 
+st.write(st.session_state)
+
 # --- DATABASE CONNECTION ---
 # Note: For this script to run standalone, you might need to adjust the path.
 # Assuming 'data/dance.db' is in a sibling directory to the app's directory.
@@ -50,7 +52,11 @@ class PaymentPlanModule:
 
 payment_plan = PaymentPlanModule()
 # --- End of Placeholders ---
-
+st.download_button(
+    "Test Download",
+    "hello world",
+    "test.txt"
+)
 # --- HELPER FUNCTIONS ---
 def get_catalog_categories():
     df = pd.read_sql("SELECT DISTINCT category FROM catalog_items ORDER BY category", conn)
