@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from datetime import datetime
 from fpdf import FPDF
+import io
 
 # --- DATABASE CONNECTION ---
 # Note: For this script to run standalone, you might need to adjust the path.
@@ -123,9 +124,10 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
     pdf.set_font("Helvetica", "B", 13)
     add_total_line(f"Monthly Installment ({months} mo):", f"${installment:.2f}")
 
-    # Return PDF as bytes
-    return pdf.output(dest='B')
-
+    # Use an in-memory buffer to ensure correct bytes output
+    buffer = io.BytesIO()
+    pdf.output(buffer)
+    return buffer.getvalue()
 
 # --- UI ---
 st.set_page_config(page_title="Payment Plans", layout="wide")

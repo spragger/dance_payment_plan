@@ -5,3 +5,4 @@ streamlit-authenticator
 fpdf2
 python-dateutil
 reportlab
+io
