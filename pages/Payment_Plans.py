@@ -17,25 +17,22 @@ authenticator = stauth.Authenticate(
     cookie_config['expiry_days'],
 )
 
-# Render the login module
-name, authentication_status, username = authenticator.login(location='main')
+# New correct code
+authenticator.login()
 
-# --- Main App Logic ---
-# Logic to control app flow based on authentication status
-if authentication_status == False:
-    st.error("Username/password is incorrect")
-
-if authentication_status == None:
-    st.warning("Please enter your username and password")
-
-if authentication_status:
-    # --- APP Renders After Login ---
-    authenticator.logout("Logout", "sidebar") # Put the logout button in the sidebar
-    st.sidebar.title(f"Welcome {name}")
+if st.session_state["authentication_status"]:
+    authenticator.logout("Logout", "sidebar")
+    st.sidebar.title(f"Welcome {st.session_state['name']}")
     
-    st.title(" Vercel AI Chatbot 🤖")
-    st.write("This is your main application, accessible only after login.")
-    # Add the rest of your app logic here
+    # --- YOUR APP GOES HERE ---
+    st.title("Your App Title 🤖")
+    st.write("This is your main application.")
+
+elif st.session_state["authentication_status"] is False:
+    st.error("Username/password is incorrect")
+    
+elif st.session_state["authentication_status"] is None:
+    st.warning("Please enter your username and password")
 
 
 # --- DATABASE CONNECTION ---
