@@ -60,14 +60,40 @@ with st.expander("Manage Item Catalog", expanded=False):
     # Use fixed sections first, then any additional from existing catalog
     existing = get_catalog_categories()
     categories = [c for c in fixed_categories] + [c for c in existing if c not in fixed_categories]
+    # Add
     category = st.selectbox("Category", categories, key="new_cat")
     item_name = st.text_input("Item Name", key="new_item_name")
     item_price = st.number_input("Item Price", min_value=0.0, format="%.2f", key="new_item_price")
     if st.button("Add Catalog Item", key="btn_add_catalog_item"):
-        cat = category
-        if cat and item_name:
-            add_catalog_item(cat, item_name, item_price)
-            st.success(f"Added item '{item_name}' under '{cat}'")
+        if category and item_name:
+            add_catalog_item(category, item_name, item_price)
+            st.success(f"Added item '{item_name}' under '{category}'")
+    st.markdown("---")
+    # Edit/Delete
+    st.subheader("Edit / Delete Catalog Item")
+    edit_cat = st.selectbox("Category to Edit", categories, key="edit_cat")
+    items_df = get_catalog_items(edit_cat)
+    item_map = {row['name']: row['id'] for _, row in items_df.iterrows()}
+    sel_item = st.selectbox("Select Item", ["--"] + list(item_map.keys()), key="edit_item_sel")
+    if sel_item and sel_item != "--":
+        eid = item_map[sel_item]
+        # fetch current
+        cur = items_df[items_df.id == eid].iloc[0]
+        new_name = st.text_input("Item Name", value=cur['name'], key="edit_item_name")
+        new_price = st.number_input("Item Price", value=cur['price'], min_value=0.0, format="%.2f", key="edit_item_price")
+        if st.button("Update Catalog Item", key="btn_update_catalog_item"):
+            c.execute(
+                "UPDATE catalog_items SET name=?, price=? WHERE id=?",
+                (new_name, new_price, eid)
+            )
+            conn.commit()
+            st.success(f"Updated '{new_name}'")
+        if st.button("Delete Catalog Item", key="btn_delete_catalog_item"):
+            c.execute("DELETE FROM catalog_items WHERE id=?", (eid,))
+            conn.commit()
+            st.success(f"Deleted '{sel_item}'")
+    st.markdown("---")
+    # Display
     for cat in categories:
         df_cat = get_catalog_items(cat)
         if not df_cat.empty:
