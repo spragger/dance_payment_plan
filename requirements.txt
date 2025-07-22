@@ -2,4 +2,3 @@ streamlit
 pandas
 python-dateutil
 streamlit-authenticator
-python-dateutil
