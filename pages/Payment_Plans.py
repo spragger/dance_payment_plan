@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import io
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 
 # --- DATABASE CONNECTION ---
@@ -70,18 +71,18 @@ def add_catalog_item(category, name, price):
     conn.commit()
 
 def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, months, installment):
-    """Generates a PDF summary of the payment plan."""
+    """Generates a PDF summary of the payment plan using the modern FPDF API."""
     pdf = FPDF()
     pdf.add_page()
 
-    # --- FONT SETUP: Add both regular and bold styles ---
+    # --- FONT SETUP: Modern API does not use 'uni' parameter ---
     script_dir = os.path.dirname(__file__)
     font_path = os.path.join(script_dir, "DejaVuSans.ttf")
-    bold_font_path = os.path.join(script_dir, "DejaVuSans-Bold.ttf") # Path to bold font
+    bold_font_path = os.path.join(script_dir, "DejaVuSans-Bold.ttf")
 
     try:
-        pdf.add_font('DejaVu', '', font_path, uni=True)
-        pdf.add_font('DejaVu', 'B', bold_font_path, uni=True) # Add BOLD style
+        pdf.add_font('DejaVu', '', font_path)
+        pdf.add_font('DejaVu', 'B', bold_font_path)
         pdf.set_font('DejaVu', '', 16)
         FONT_FAMILY = 'DejaVu'
     except FileNotFoundError:
@@ -90,38 +91,37 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
         FONT_FAMILY = 'Helvetica'
 
 
-    # Title
-    pdf.cell(0, 10, f"Payment Plan for {student_name}", 0, 1, "C")
+    # Title - Updated to modern cell positioning API
+    pdf.cell(0, 10, f"Payment Plan for {student_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(10)
 
     # --- Items Table ---
-    # Set the font to bold for the header
     pdf.set_font(FONT_FAMILY, 'B', 12)
-    pdf.cell(130, 10, "Item", 1, 0, "C")
-    pdf.cell(60, 10, "Price", 1, 1, "C")
+    pdf.cell(130, 10, "Item", border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align="C")
+    pdf.cell(60, 10, "Price", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
     items_df = df_summary[~df_summary['Category'].str.contains("Down Payment")]
 
     # Table Body
     for category in items_df['Category'].unique():
-        pdf.set_font(FONT_FAMILY, 'B', 11) # Category name in bold
-        pdf.cell(190, 8, category, "LR", 1)
+        pdf.set_font(FONT_FAMILY, 'B', 11)
+        pdf.cell(190, 8, category, border="LR", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        pdf.set_font(FONT_FAMILY, '', 11) # Regular font for items
+        pdf.set_font(FONT_FAMILY, '', 11)
         category_items = items_df[items_df['Category'] == category]
         for _, row in category_items.iterrows():
-            pdf.cell(130, 8, f"  {row['Item']}", "LR", 0)
-            pdf.cell(60, 8, f"${row['Price']:.2f}", "R", 1, "R")
+            pdf.cell(130, 8, f"  {row['Item']}", border="LR", new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(60, 8, f"${row['Price']:.2f}", border="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
-    pdf.cell(190, 0, "", "T", 1)
+    pdf.cell(190, 0, "", border="T", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(10)
 
     # --- Summary Totals ---
     pdf.set_font(FONT_FAMILY, 'B', 12)
 
     def add_total_line(label, value_str):
-        pdf.cell(130, 8, label, 0, 0, "R")
-        pdf.cell(60, 8, value_str, 0, 1, "R")
+        pdf.cell(130, 8, label, new_x=XPos.RIGHT, new_y=YPos.TOP, align="R")
+        pdf.cell(60, 8, value_str, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
     add_total_line("Grand Total:", f"${grand_total:.2f}")
     add_total_line("Total Down Payments:", f"${total_down:.2f}")
@@ -132,6 +132,7 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
     pdf.set_font(FONT_FAMILY, 'B', 13)
     add_total_line(f"Monthly Installment ({months} mo):", f"${installment:.2f}")
 
+    # Use an in-memory buffer to ensure correct bytes output
     buffer = io.BytesIO()
     pdf.output(buffer)
     return buffer.getvalue()
