@@ -167,38 +167,26 @@ if menu == "📋 Students":
     students_df = get_all_students()
     student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
 
-    with st.expander("Import & Create/Edit Dances", expanded=False):
-        # Import Dances from CSV
-        st.subheader("Import Dances from CSV")
-        dances_file = st.file_uploader("Upload Dances CSV", type=["csv"], key="dances_csv")
-        if dances_file:
-            df_d_import = pd.read_csv(dances_file)
-            st.dataframe(df_d_import)
-            if st.button("Import Dances", key="btn_import_dances"):
-                for _, row in df_d_import.iterrows():
-                    dtype = row.get('dancetype') or row.get('type')
-                    name = row.get('dancename') or row.get('name')
-                    # any additional columns as dancer labels
-                    student_labels = [row[k] for k in df_d_import.columns if k not in ['dancetype','dancename','type','name'] and pd.notna(row[k])]
-                    ids = []
-                    students_df = get_all_students()
-                    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-                    for label in student_labels:
-                        if label in student_map:
-                            ids.append(student_map[label])
-                        else:
-                            st.warning(f"Unknown student: {label}")
+    with st.expander("Import & Create\/Edit Students", expanded=False):
+        # Import Students from CSV
+        st.subheader("Import Students from CSV")
+        csv_file = st.file_uploader("Upload Students CSV", type=["csv"], key="students_csv")
+        if csv_file:
+            df_import = pd.read_csv(csv_file)
+            st.dataframe(df_import)
+            if st.button("Import Students", key="btn_import_students"):
+                for _, row in df_import.iterrows():
                     try:
-                        add_dance(name, dtype, ids)
+                        add_student(row['first'], row['last'], row['dob'])
                     except Exception as e:
-                        st.error(f"Failed to import dance '{name}': {e}")
-                st.success("Dances imported from CSV.")
-        
-        # Create/Edit Dances
-        fn = st.text_input("First Name")
-        ln = st.text_input("Last Name")
-        dob = st.date_input("Date of Birth", min_value=date(1900,1,1))
-        if st.button("Add Student"):
+                        st.error(f"Failed to import row {row.to_dict()}: {e}")
+                st.success("Students imported from CSV.")
+        # Add New Student
+        st.subheader("Add New Student")
+        fn = st.text_input("First Name", key="add_fn")
+        ln = st.text_input("Last Name", key="add_ln")
+        dob = st.date_input("Date of Birth", min_value=date(1900,1,1), key="add_dob")
+        if st.button("Add Student", key="btn_add_student"):
             if fn and ln:
                 add_student(fn, ln, dob.isoformat())
                 st.success(f"Added {fn} {ln}")
@@ -209,21 +197,21 @@ if menu == "📋 Students":
 
     # Edit or Delete Student
     st.subheader("Edit / Delete Student")
-    sel = st.selectbox("Select Student", ["--"] + list(student_map.keys()))
+    sel = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="edit_sel")
     if sel and sel != "--":
         sid = student_map[sel]
         stu = students_df[students_df.id == sid].iloc[0]
         with st.form("edit_student_form"):
-            fn2 = st.text_input("First Name", value=stu['first_name'])
-            ln2 = st.text_input("Last Name", value=stu['last_name'])
-            dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1))
-            if st.form_submit_button("Update Student"):
+            fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
+            ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
+            dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
+            if st.form_submit_button("Update Student", key="btn_update_student"):
                 if fn2 and ln2:
                     update_student(sid, fn2, ln2, dob2.isoformat())
                     st.success(f"Updated {fn2} {ln2}")
                 else:
                     st.error("Please enter both first and last name.")
-            if st.form_submit_button("Delete Student"):
+            if st.form_submit_button("Delete Student", key="btn_delete_student"):
                 delete_student(sid)
                 st.success(f"Deleted {sel}")
 
@@ -231,7 +219,7 @@ if menu == "📋 Students":
 
     # View Student Profile
     st.subheader("View Student Profile")
-    sel_v = st.selectbox("Select Student to View", ["--"] + list(student_map.keys()))
+    sel_v = st.selectbox("Select Student to View", ["--"] + list(student_map.keys()), key="view_sel")
     if sel_v and sel_v != "--":
         sid = student_map[sel_v]
         stu = students_df[students_df.id == sid].iloc[0]
@@ -254,7 +242,7 @@ if menu == "📋 Students":
             for comp in df_c['name']:
                 st.write(f"- {comp}")
 
-# --- Dances Page ---
+# --- Dances Page --- ---
 elif menu == "🕺 Dances":
     st.header("Dances")
     with st.expander("Create/Edit Dances", expanded=False):
