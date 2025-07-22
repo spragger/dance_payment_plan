@@ -165,17 +165,6 @@ st.title("EDOT Company Manager")
 # Sidebar navigation
 menu = st.sidebar.radio(
     "Navigate",
-    ["📋 Students", "🕺 Dances", "🏆 Competitions", "💳 Payment Plans"],
-    index=0,
-)
-
-# UI Setup
-st.set_page_config(page_title="EDOT Company Manager", layout="wide")
-st.title("EDOT Company Manager")
-
-# Sidebar navigation
-menu = st.sidebar.radio(
-    "Navigate",
     ["📋 Students", "🕺 Dances", "🏆 Competitions"],
     index=0,
 )
