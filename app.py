@@ -346,6 +346,13 @@ elif menu == "🏆 Competitions":
                         st.write("No members.")
                     else:
                         for i, m in enumerate(members, start=1):
+                            st.write(f"{i}. {m}"), key=f"view_comp_{c['id']}"):
+                    members_df = get_students_for_competition(c['id'])
+                    members = members_df['name'].tolist()
+                    if not members:
+                        st.write("No members.")
+                    else:
+                        for i, m in enumerate(members, start=1):
                             st.write(f"{i}. {m}")
 
 # --- Payment Plans Page ---
@@ -386,7 +393,17 @@ elif menu == "💳 Payment Plans":
 
             submitted = st.form_submit_button("Save Payment Plan")
         if submitted:
-            # Placeholder: call payment_plan.add_student_plan and add_plan_item
+            # Persist payment plan via payment_plan module
+            plan_id = payment_plan.add_student_plan(sid, None)
+            # Store subtotals
+            payment_plan.add_plan_item(plan_id, "Tuition", tuition_amt, "Tuition")
+            payment_plan.add_plan_item(plan_id, "Solo/Duo/Trio", sdt_amt, "Solo/Duo/Trio")
+            payment_plan.add_plan_item(plan_id, "Groups", group_amt, "Group")
+            payment_plan.add_plan_item(plan_id, "Competitions & Conventions", comp_amt, "Competition")
+            payment_plan.add_plan_item(plan_id, "Choreography", choreo_amt, "Choreography")
+            payment_plan.add_plan_item(plan_id, "Costume Fees", costume_amt, "Costume")
+            payment_plan.add_plan_item(plan_id, "Administrative Fees", admin_amt, "Administrative")
+            payment_plan.add_plan_item(plan_id, "Misc Fees", misc_amt, "Miscellaneous")
             st.success("Payment plan saved.")
 
 else:
