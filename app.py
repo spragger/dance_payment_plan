@@ -214,16 +214,23 @@ elif menu == "🕺 Dances":
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
         dance_types = ["Solo", "Duet", "Trio", "Group"]
         cols = st.columns(2)
-        # Create
+                # Create
         with cols[0]:
             st.subheader("Create Dance")
             name = st.text_input("Name", key="dance_new_name")
             dtype = st.selectbox("Type", dance_types, key="dance_new_type")
             sel = st.multiselect("Students", list(student_map.keys()), key="dance_new_students")
+            # Enforce selection limits
+            limits = {"Solo": 1, "Duet": 2, "Trio": 3, "Group": None}
+            max_sel = limits.get(dtype)
             if st.button("Add Dance", key="btn_add_dance"):
-                add_dance(name, dtype, [student_map[s] for s in sel])
-                st.success(f"Dance '{name}' created.")
-                # Edit
+                selected_ids = [student_map[s] for s in sel]
+                if max_sel is not None and len(selected_ids) != max_sel:
+                    st.error(f"{dtype} requires exactly {max_sel} student(s).")
+                else:
+                    add_dance(name, dtype, selected_ids)
+                    st.success(f"Dance '{name}' created.")
+        # Edit
         with cols[1]:
             st.subheader("Edit Dance")
             options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
