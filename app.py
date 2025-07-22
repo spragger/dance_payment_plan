@@ -4,13 +4,16 @@ import pandas as pd
 from datetime import date
 import os
 
-# ensure data directory exists before payment_plan connects
-os.makedirs("data", exist_ok=True)
+# Determine absolute path for data directory
+BASE_DIR = os.path.dirname(__file__)
+DATA_DIR = os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Ensure payment_plan sees the same DB
 import payment_plan
 
 # --- DATABASE SETUP ---
-DB_PATH = "data/dance.db"
-os.makedirs("data", exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "dance.db")
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
