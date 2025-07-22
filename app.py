@@ -170,39 +170,62 @@ st.title("Dance Studio Manager")
 
 # Students Page
 if menu == "📋 Students":
-    # Manage form
+    # Manage Students: Add & Edit
     with st.expander("Manage Students", expanded=False):
-        with st.form("add_student_form"):
-            fn = st.text_input("First Name")
-            ln = st.text_input("Last Name")
-            dob = st.date_input("Date of Birth", min_value=date(1900, 1, 1))
-            if st.form_submit_button("Add Student"):
-                add_student(fn, ln, dob.isoformat())
-                st.success(f"Added {fn} {ln}")
+        # Load current students
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-        sel = st.selectbox("Select Student", ["--"] + list(student_map.keys()))
-        if sel and sel != "--":
-            sid = student_map[sel]
-            stu = students_df[students_df.id == sid].iloc[0]
-            st.subheader(f"{stu['first_name']} {stu['last_name']}")
-            st.write(f"**DOB:** {stu['dob']}")
-            # Dances
-            st.write("**Dances:**")
-            df_d = get_dances_for_student(sid)
-            if df_d.empty:
-                st.write("No dances.")
+        # Add Student Form
+        with st.form("add_student_form"):
+            fn = st.text_input("First Name", key="add_fn")
+            ln = st.text_input("Last Name", key="add_ln")
+            dob = st.date_input("Date of Birth", min_value=date(1900, 1, 1), key="add_dob")
+            if st.form_submit_button("Add Student", key="btn_add_student"):
+                add_student(fn, ln, dob.isoformat())
+                st.success(f"Added {fn} {ln}")
+        st.markdown("---")
+        # Edit Student Form
+        with st.form("edit_student_form"):
+            edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_select")
+            if edit_sel and edit_sel != "--":
+                sid = student_map[edit_sel]
+                stu = students_df[students_df.id == sid].iloc[0]
+                fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
+                ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
+                dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
             else:
-                for dance in df_d['name'].tolist():
-                    st.write(f"- {dance}")
-            # Competitions
-            st.write("**Competitions:**")
-            df_c = get_competitions_for_student(sid)
-            if df_c.empty:
-                st.write("No competitions.")
-            else:
-                for comp in df_c['name'].tolist():
-                    st.write(f"- {comp}")
+                sid = None
+                fn2 = ln2 = dob2 = None
+            if st.form_submit_button("Update Student", key="btn_update_student"):
+                if sid:
+                    update_student(sid, fn2, ln2, dob2.isoformat())
+                    st.success(f"Updated {fn2} {ln2}")
+    st.markdown("---")
+    # Profile Viewer
+    students_df = get_all_students()
+    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+    sel = st.selectbox("View Student Profile", ["--"] + list(student_map.keys()), key="view_select")
+    if sel and sel != "--":
+        sid = student_map[sel]
+        stu = students_df[students_df.id == sid].iloc[0]
+        st.subheader(f"{stu['first_name']} {stu['last_name']}")
+        st.write(f"**DOB:** {stu['dob']}")
+        # Dances
+        st.write("**Dances:**")
+        df_d = get_dances_for_student(sid)
+        if df_d.empty:
+            st.write("No dances.")
+        else:
+            for dance in df_d['name'].tolist():
+                st.write(f"- {dance}")
+        # Competitions
+        st.write("**Competitions:**")
+        df_c = get_competitions_for_student(sid)
+        if df_c.empty:
+            st.write("No competitions.")
+        else:
+            for comp in df_c['name'].tolist():
+                st.write(f"- {comp}")
 
 # Dances Page
 elif menu == "🕺 Dances":
