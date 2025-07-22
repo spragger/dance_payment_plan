@@ -58,30 +58,58 @@ payment_plan = PaymentPlanModule()
 
 # --- HELPER FUNCTIONS ---
 def show_print_button():
-    """Adds a button to trigger the browser's print dialog."""
+    """Adds a button with specific CSS to trigger the browser's print dialog."""
     print_button_html = """
     <style>
-    .print-button {
-        background-color: #007bff; /* Blue */
-        border: none;
-        color: white;
-        padding: 15px 32px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
-        border-radius: 8px;
+    /* CSS for the button itself (on screen) */
+    @media screen {
+        .print-button {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 20px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+    }
+
+    /* CSS for printing */
+    @media print {
+        /* Hide everything by default */
+        body * {
+            visibility: hidden;
+        }
+
+        /* Hide Streamlit's default header, sidebar, and toolbar */
+        [data-testid="stHeader"], [data-testid="stSidebar"], .st-emotion-cache-1v0mbdj, .st-emotion-cache-1oe5cao {
+            display: none !important;
+        }
+
+        /* Make only the main content area visible */
+        .main .block-container, .main .block-container * {
+            visibility: visible;
+        }
+
+        /* Position the main content at the top-left of the print page */
+        .main .block-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
     }
     </style>
-    <br><br>
+    
     <button onclick="window.print()" class="print-button">
         🖨️ Print or Save as PDF
     </button>
     """
     st.components.v1.html(print_button_html, height=100)
-
 
 def get_catalog_categories():
     df = pd.read_sql("SELECT DISTINCT category FROM catalog_items ORDER BY category", conn)
@@ -307,7 +335,7 @@ if sel_student and sel_student != "--":
     if submitted or 'pdf_bytes' in st.session_state:
         # We can reuse the session state flag to know a plan is ready.
         show_print_button()
-        
+
 else:
     # Clear session state if no student is selected
     if 'pdf_bytes' in st.session_state:
