@@ -206,11 +206,13 @@ if menu == "📋 Students":
 
 # Dances Page
 elif menu == "🕺 Dances":
+    st.header("Dances")
+    # Create/Edit section
     with st.expander("Create/Edit Dances", expanded=False):
         dance_df = get_all_dances()
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-        dance_types = dance_df['type'].unique().tolist()
+        dance_types = ["Solo", "Duet", "Trio", "Group"]
         cols = st.columns(2)
         # Create
         with cols[0]:
@@ -235,9 +237,9 @@ elif menu == "🕺 Dances":
                 if st.button("Update Dance", key="btn_edit_dance"):
                     update_dance(did, choice.split(': ')[1], [student_map[s] for s in selm])
                     st.success("Dance updated.")
-    # Lists
+    # Display lists in order
     dance_df = get_all_dances()
-    for dtype in dance_df['type'].unique():
+    for dtype in ["Solo", "Duet", "Trio", "Group"]:
         with st.expander(f"{dtype} List", expanded=False):
             sub = dance_df[dance_df.type == dtype].sort_values('name')
             if sub.empty:
@@ -248,10 +250,20 @@ elif menu == "🕺 Dances":
                     if dtype == 'Solo':
                         members = get_students_for_dance(did)
                         member = members['name'].iloc[0] if not members.empty else 'Unassigned'
-                        st.write(f"{d['name']} – {member}")
+                        st.write(f"- {d['name']} – {member}")
                     else:
+                        # click to show members
                         if st.button(d['name'], key=f"view_dance_{did}"):
-                            st.write(get_students_for_dance(did))
+                            members = get_students_for_dance(did)['name'].tolist()
+                            if not members:
+                                st.write("No members.")
+                            else:
+                                if dtype == 'Group':
+                                    for i, m in enumerate(members, start=1):
+                                        st.write(f"{i}. {m}")
+                                else:
+                                    for m in members:
+                                        st.write(f"- {m}")
 
 # Competitions Page
 elif menu == "🏆 Competitions":
