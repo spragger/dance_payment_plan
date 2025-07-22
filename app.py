@@ -194,7 +194,7 @@ if menu == "📋 Students":
                 st.write("No dances.")
             else:
                 df_d_display = df_d[['name']].rename(columns={'name':'Dance'}).reset_index(drop=True)
-                st.table(df_d_display)
+                st.dataframe(df_d_display.style.hide_index())
             # Competitions
             st.write("**Competitions:**")
             df_c = get_competitions_for_student(sid)
@@ -202,7 +202,7 @@ if menu == "📋 Students":
                 st.write("No competitions.")
             else:
                 df_c_display = df_c[['name']].rename(columns={'name':'Competition'}).reset_index(drop=True)
-                st.table(df_c_display)
+                st.dataframe(df_c_display.style.hide_index())
 
 # Dances Page
 elif menu == "🕺 Dances":
