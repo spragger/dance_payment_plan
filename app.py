@@ -163,16 +163,26 @@ import streamlit_authenticator as stauth
 
 # Load raw credentials from Streamlit secrets
 raw_creds = st.secrets.get("credentials", {})
-# Build a standalone copy so we don't modify st.secrets
+
+# Build a plain credentials dict (avoid mutating st.secrets directly)
+credentials = {"usernames": {}}
 if "users" in raw_creds:
-    credentials = {"usernames": copy.deepcopy(raw_creds["users"]) }
+    for uname, uinfo in raw_creds["users"].items():
+        credentials["usernames"][uname] = {
+            "name": uinfo.get("name"),
+            "email": uinfo.get("email"),
+            "password": uinfo.get("password"),
+        }
 elif "usernames" in raw_creds:
-    credentials = {"usernames": copy.deepcopy(raw_creds["usernames"]) }
+    for uname, uinfo in raw_creds["usernames"].items():
+        credentials["usernames"][uname] = {
+            "name": uinfo.get("name"),
+            "email": uinfo.get("email"),
+            "password": uinfo.get("password"),
+        }
 else:
     st.error("No user credentials found. Please define [credentials.users] or [credentials.usernames] in your secrets.")
     st.stop()
-
-
 
 # Cookie configuration
 cookie_conf = raw_creds.get("cookie", {})
