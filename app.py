@@ -174,7 +174,7 @@ if menu == "📋 Students":
     students_df = get_all_students()
     student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
 
-    # Add Student Form
+    # Add New Student
     st.subheader("Add New Student")
     with st.form("add_student_form"):
         fn = st.text_input("First Name", key="add_fn")
@@ -187,15 +187,15 @@ if menu == "📋 Students":
             st.success(f"Added {fn} {ln}")
             st.experimental_rerun()
         else:
-            st.error("Please enter first and last name.")
+            st.error("Please enter both first and last name.")
 
     st.markdown("---")
 
-    # Edit Student
+    # Edit Existing Student
     st.subheader("Edit Existing Student")
-    edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
-    if edit_sel and edit_sel != "--":
-        sid = student_map[edit_sel]
+    sel_edit = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
+    if sel_edit and sel_edit != "--":
+        sid = student_map[sel_edit]
         stu = students_df[students_df.id == sid].iloc[0]
         with st.form("edit_student_form"):
             fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
@@ -206,14 +206,13 @@ if menu == "📋 Students":
             if fn2 and ln2:
                 update_student(sid, fn2, ln2, dob2.isoformat())
                 st.success(f"Updated {fn2} {ln2}")
+                st.experimental_rerun()
             else:
-                st.error("Please provide both first and last name.")
-            else:
-                st.error("Please provide both first and last name.")
+                st.error("Please enter both first and last name.")
 
     st.markdown("---")
 
-    # Profile Viewer
+    # View Student Profile
     st.subheader("View Student Profile")
     sel_view = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="view_sel")
     if sel_view and sel_view != "--":
