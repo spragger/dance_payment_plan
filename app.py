@@ -275,6 +275,9 @@ elif menu == "🕺 Dances":
     st.header("Dances")
     # Create/Edit section
     with st.expander("Import & Create/Edit Dances", expanded=False):
+        # Ensure student_map is available for imports
+        students_df = get_all_students()
+        student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
         # Import Dances from CSV
         st.subheader("Import Dances from CSV")
         dances_file = st.file_uploader("Upload Dances CSV", type="csv", key="dances_csv")
@@ -348,8 +351,9 @@ elif menu == "🕺 Dances":
                         update_dance(did, new_name, sel_ids)
                         st.success("Dance updated.")
                 if st.button("Delete Dance", key="btn_delete_dance"):
-                    delete_dance(did)
-                    st.success(f"Deleted dance '{current['name']}'")
+                        delete_dance(did)
+                        st.success(f"Deleted dance '{current['name']}'")
+                        st.experimental_rerun()
     # Display lists in order
     dance_df = get_all_dances()
     for dtype in ["Solo", "Duet", "Trio", "Group"]:
