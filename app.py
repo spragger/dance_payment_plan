@@ -198,7 +198,7 @@ if menu == "📋 Students":
         fn = st.text_input("First Name")
         ln = st.text_input("Last Name")
         dob = st.date_input("Date of Birth", min_value=date(1900,1,1))
-        if st.form_submit_button("Add Student"):
+        if st.button("Add Student"):
             if fn and ln:
                 add_student(fn, ln, dob.isoformat())
                 st.success(f"Added {fn} {ln}")
