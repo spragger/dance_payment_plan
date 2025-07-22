@@ -168,16 +168,3 @@ if sel_student and sel_student != "--":
         )
 else:
     st.info("Select a student to begin.")
-if 'payment_pdf' in st.session_state:
-    st.download_button(
-        "Download Payment Plan PDF",
-        data=st.session_state['payment_pdf'],
-        file_name=st.session_state['payment_pdf_name'],
-        mime='application/pdf'
-    )("Generated PDF")
-    st.download_button(
-        "Download PDF",
-        data=pdf_bytes,
-        file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
-        mime='application/pdf'
-    )
