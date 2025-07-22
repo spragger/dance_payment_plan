@@ -103,6 +103,14 @@ def update_dance(did, name, student_ids):
         )
     conn.commit()
 
+# Delete dance helper
+def delete_dance(did):
+    # Remove associations
+    c.execute("DELETE FROM dance_students WHERE dance_id=?", (did,))
+    # Remove dance
+    c.execute("DELETE FROM dances WHERE id=?", (did,))
+    conn.commit()
+
 def get_all_dances():
     return pd.read_sql(
         "SELECT * FROM dances ORDER BY type, name", conn
@@ -291,12 +299,15 @@ elif menu == "🕺 Dances":
                 limits = {"Solo": 1, "Duet": 2, "Trio": 3, "Group": None}
                 max_sel = limits.get(dtype)
                 if st.button("Update Dance", key="btn_edit_dance"):
-                    sel_ids = [student_map[s] for s in selm]
-                    if max_sel is not None and len(sel_ids) != max_sel:
-                        st.error(f"{dtype} requires exactly {max_sel} student(s).")
-                    else:
-                        update_dance(did, new_name, sel_ids)
-                        st.success("Dance updated.")
+    sel_ids = [student_map[s] for s in selm]
+    if max_sel is not None and len(sel_ids) != max_sel:
+        st.error(f"{dtype} requires exactly {max_sel} student(s).")
+    else:
+        update_dance(did, new_name, sel_ids)
+        st.success("Dance updated.")
+if st.button("Delete Dance", key="btn_delete_dance"):
+    delete_dance(did)
+    st.success(f"Deleted dance '{current['name']}'")
 
     # Display lists in order
     dance_df = get_all_dances()
