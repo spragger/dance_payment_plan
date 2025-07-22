@@ -152,8 +152,10 @@ st.title("EDOT Company Manager")
 # Sidebar navigation
 menu = st.sidebar.radio(
     "Navigate",
-    ["📋 Students", "🕺 Dances", "🏆 Competitions", "💳 Payment Plans"]
+    ["📋 Students", "🕺 Dances", "🏆 Competitions"],
+    index=0,
 )
+st.info("Use the Streamlit page menu (☰) to access Payment Plans.")
 
 # --- Students Page ---
 if menu == "📋 Students":
