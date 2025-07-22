@@ -106,19 +106,12 @@ if menu == "📋 Students":
 
     st.subheader("All Students")
     students_df = get_all_students()
-    if "view_student_id" not in st.session_state:
-        st.session_state.view_student_id = None
+    student_options = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+    selected_label = st.selectbox("Select a student to view profile", options=["--"] + list(student_options.keys()))
+    if selected_label != "--":
+        st.session_state.view_student_id = student_options[selected_label]
 
-    if st.session_state.view_student_id is None:
-        for _, row in students_df.iterrows():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"**{row['last_name']}, {row['first_name']}** – DOB: {row['dob']}")
-            with col2:
-                if st.button("View Profile", key=f"view_{row['id']}"):
-                    st.session_state.view_student_id = row['id']
-                    st.experimental_rerun()
-    else:
+    if "view_student_id" in st.session_state and st.session_state.view_student_id is not None:
         student = students_df[students_df["id"] == st.session_state.view_student_id].iloc[0]
         st.markdown(f"### {student['first_name']} {student['last_name']}")
         st.markdown(f"**DOB:** {student['dob']}")
