@@ -206,7 +206,8 @@ if menu == "📋 Students":
             if fn2 and ln2:
                 update_student(sid, fn2, ln2, dob2.isoformat())
                 st.success(f"Updated {fn2} {ln2}")
-                st.experimental_rerun()
+            else:
+                st.error("Please provide both first and last name.")
             else:
                 st.error("Please provide both first and last name.")
 
