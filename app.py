@@ -230,8 +230,21 @@ elif menu == "🕺 Dances":
             choice = st.selectbox("Select Dance", ["--"] + list(options.keys()), key="dance_edit_sel")
             if choice and choice != "--":
                 did = options[choice]
-                current = dance_df[dance_df.id == did].iloc[0]
+                dtype = choice.split(': ')[0]
                 df_members = get_students_for_dance(did)
+                # Display current members
+                st.write("**Current Members:**")
+                if df_members.empty:
+                    st.write("No members.")
+                else:
+                    members = df_members['name'].tolist()
+                    if dtype == 'Group':
+                        for i, m in enumerate(members, start=1):
+                            st.write(f"{i}. {m}")
+                    else:
+                        for m in members:
+                            st.write(f"- {m}")
+                # Member selection
                 curr = df_members['name'].tolist()
                 selm = st.multiselect("Members", list(student_map.keys()), default=curr, key="dance_edit_members")
                 if st.button("Update Dance", key="btn_edit_dance"):
