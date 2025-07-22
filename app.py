@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 from datetime import date
 import os
+import payment_plan
 
 # --- DATABASE SETUP ---
 DB_PATH = "data/dance.db"
@@ -178,11 +179,13 @@ def get_competitions_for_student(student_id):
     )
 
 # --- UI ---
-st.set_page_config(page_title="Dance Studio Manager", layout="wide")
-menu = st.sidebar.selectbox(
-    "Navigate", ["📋 Students", "🕺 Dances", "🏆 Competitions"]
+st.set_page_config(page_title="EDOT Company Manager", layout="wide")
+menu = st.sidebar.radio(
+    "Navigate",
+    ["📋 Students", "🕺 Dances", "🏆 Competitions", "💳 Payment Plans"],
+    index=0,
 )
-st.title("Dance Studio Manager")
+st.title("EDOT Company Manager")
 
 # Students Page
 if menu == "📋 Students":
@@ -419,3 +422,7 @@ elif menu == "🏆 Competitions":
             for _, c in compet_df.sort_values('name').iterrows():
                 if st.button(c['name'], key=f"view_comp_{c['id']}"):
                     st.write(get_students_for_competition(c['id']))
+
+elif menu == "💳 Payment Plans":
+    st.header("Payment Plans")
+
