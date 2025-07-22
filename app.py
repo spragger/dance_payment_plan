@@ -318,8 +318,9 @@ elif menu == "🏆 Competitions":
                 st.success(f"Competition '{name}' created.")
         # Edit/Delete Competition
         with cols[1]:
-            options = {r['name']:r['id'] for _,r in compet_df.iterrows()}
-            choice = st.selectbox("Select Competition",["--"]+list(options.keys()), key="edit_comp_sel")
+            compet_df_local = compet_df.copy()
+            options = {r['name']:r['id'] for _,r in compet_df_local.iterrows()}
+            choice = st.selectbox("Select Competition", ["--"]+list(options.keys()), key="edit_comp_sel")
             if choice and choice!="--":
                 cid = options[choice]
                 df_m = get_students_for_competition(cid)
@@ -334,19 +335,12 @@ elif menu == "🏆 Competitions":
                     conn.commit()
                     st.success(f"Deleted competition '{choice}'")
     with st.expander("Competitions List", expanded=False):
-        compet_df = pd.read_sql("SELECT * FROM competitions ORDER BY name", conn)
-        if compet_df.empty:
+        compet_df_list = pd.read_sql("SELECT * FROM competitions ORDER BY name", conn)
+        if compet_df_list.empty:
             st.write("No competitions.")
         else:
-            for _, c in compet_df.sort_values('name').iterrows():
+            for _, c in compet_df_list.sort_values('name').iterrows():
                 if st.button(c['name'], key=f"view_comp_{c['id']}"):
-                    members_df = get_students_for_competition(c['id'])
-                    members = members_df['name'].tolist()
-                    if not members:
-                        st.write("No members.")
-                    else:
-                        for i, m in enumerate(members, start=1):
-                            st.write(f"{i}. {m}"), key=f"view_comp_{c['id']}"):
                     members_df = get_students_for_competition(c['id'])
                     members = members_df['name'].tolist()
                     if not members:
