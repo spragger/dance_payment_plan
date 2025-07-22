@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
-from fpdf import FPDF
+
 
 # --- DATABASE CONNECTION ---
 BASE_DIR = os.path.dirname(__file__)
