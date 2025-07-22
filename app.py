@@ -242,10 +242,39 @@ if menu == "📋 Students":
             for comp in df_c['name']:
                 st.write(f"- {comp}")
 
-# --- Dances Page --- ---
+# --- Dances Page ---
 elif menu == "🕺 Dances":
     st.header("Dances")
-    with st.expander("Create/Edit Dances", expanded=False):
+    with st.expander("Import & Create/Edit Dances", expanded=False):
+        # Import Dances from CSV
+        st.subheader("Import Dances from CSV")
+        dances_file = st.file_uploader("Upload Dances CSV", type=["csv"], key="dances_csv")
+        if dances_file:
+            df_import = pd.read_csv(dances_file)
+            st.dataframe(df_import)
+            if st.button("Import Dances", key="btn_import_dances"):
+                # Build student map
+                students_df = get_all_students()
+                student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+                for _, row in df_import.iterrows():
+                    dtype = row.get('dancetype') or row.get('type')
+                    name = row.get('dancename') or row.get('name')
+                    # Collect dancer labels from other columns
+                    ids = []
+                    for col in df_import.columns:
+                        if col not in ['dancetype','dancename','type','name'] and pd.notna(row[col]):
+                            label = row[col]
+                            if label in student_map:
+                                ids.append(student_map[label])
+                            else:
+                                st.warning(f"Unknown student: {label}")
+                    try:
+                        add_dance(name, dtype, ids)
+                    except Exception as e:
+                        st.error(f"Error importing dance '{name}': {e}")
+                st.success("Dances imported from CSV.")
+
+        # Create/Edit Dances
         dance_df = get_all_dances()
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
