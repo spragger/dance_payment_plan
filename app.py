@@ -215,6 +215,103 @@ elif menu=="💳 Payment Templates":
                 add_template_item(tid,name,price,itype)
                 st.success("Item added")
 
-# --- DANCES & COMPETITIONS pages unchanged ---
-else:
-    st.info("Other modules unaffected.")
+# --- DANCES PAGE ---
+elif menu == "🕺 Dances":
+    st.header("Dances")
+    dance_df = get_all_dances()
+    students_df = get_all_students()
+    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
+    dance_types = dance_df['type'].unique().tolist()
+
+    with st.expander("Create/Edit Dances", expanded=False):
+        cols = st.columns(2)
+        # Create
+        with cols[0]:
+            st.subheader("Create Dance")
+            name = st.text_input("Name", key="dance_new_name")
+            dtype = st.selectbox("Type", dance_types, key="dance_new_type")
+            price = st.number_input("Price", min_value=0.0, format="%.2f", key="dance_new_price")
+            sel = st.multiselect("Students", options=list(student_map.keys()), key="dance_new_students")
+            if st.button("Add Dance", key="btn_add_dance"):
+                add_dance(name, dtype, price)
+                # assign students
+                for s in sel:
+                    c.execute("INSERT OR IGNORE INTO dance_students (dance_id, student_id) VALUES (?, ?)", (conn.execute("SELECT id FROM dances WHERE name=? ORDER BY id DESC", (name,)).fetchone()[0], student_map[s]))
+                conn.commit()
+                st.success(f"Dance '{name}' added.")
+        # Edit
+        with cols[1]:
+            st.subheader("Edit Dance")
+            options = {f"{r['type']}: {r['name']}": r['id'] for _,r in dance_df.iterrows()}
+            choice = st.selectbox("Select Dance", ["--"]+list(options.keys()), key="dance_edit_sel")
+            if choice and choice!="--":
+                did = options[choice]
+                current = dance_df[dance_df.id==did].iloc[0]
+                with st.form("edit_dance_form"):
+                    new_name = st.text_input("Name", value=current['name'])
+                    new_price = st.number_input("Price", value=float(current['price']), min_value=0.0, format="%.2f")
+                    selm = st.multiselect("Students", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _,r in get_students_for_dance(did).iterrows()])
+                    if st.form_submit_button("Update Dance"):
+                        update_dance(did, new_name, new_price)
+                        update_dance_members(did, [student_map[s] for s in selm])
+                        st.success("Dance updated.")
+    # List
+    for dtype in dance_types:
+        with st.expander(f"{dtype} List", expanded=False):
+            sub = dance_df[dance_df.type==dtype].sort_values('name')
+            if sub.empty:
+                st.write("No dances.")
+            else:
+                for _,d in sub.iterrows():
+                    if dtype=='Solo':
+                        st.write(f"{d['name']} - ${d['price']}")
+                    else:
+                        if st.button(f"{d['name']} (${d['price']})", key=f"view_dance_{d['id']}"):
+                            st.write(get_students_for_dance(d['id']))
+
+# --- COMPETITIONS PAGE ---
+elif menu == "🏆 Competitions":
+    st.header("Competitions")
+    compet_df = get_all_competitions()
+    students_df = get_all_students()
+    student_map = {f"{r['last_name']}, {r['first_name']}":r['id'] for _,r in students_df.iterrows()}
+
+    with st.expander("Create/Edit Competitions", expanded=False):
+        cols = st.columns(2)
+        with cols[0]:
+            st.subheader("Create Competition")
+            name = st.text_input("Name", key="comp_new_name")
+            has_conv = st.checkbox("Includes Convention", key="comp_new_conv")
+            price = st.number_input("Price", min_value=0.0, format="%.2f", key="comp_new_price")
+            conv_price = st.number_input("Convention Price", min_value=0.0, format="%.2f", key="comp_new_conv_price")
+            sel = st.multiselect("Students", options=list(student_map.keys()), key="comp_new_students")
+            if st.button("Add Competition", key="btn_add_comp"): 
+                add_competition(name,int(has_conv),price,conv_price)
+                # assign students
+                for s in sel:
+                    c.execute("INSERT OR IGNORE INTO competition_students (competition_id, student_id) VALUES (?, ?)", (conn.execute("SELECT id FROM competitions WHERE name=? ORDER BY id DESC", (name,)).fetchone()[0], student_map[s]))
+                conn.commit()
+                st.success(f"Competition '{name}' added.")
+        with cols[1]:
+            st.subheader("Edit Competition")
+            options = {r['name']:r['id'] for _,r in compet_df.iterrows()}
+            choice = st.selectbox("Select Competition", ["--"]+list(options.keys()), key="comp_edit_sel")
+            if choice and choice!="--":
+                cid = options[choice]
+                current = compet_df[compet_df.id==cid].iloc[0]
+                with st.form("edit_comp_form"):
+                    new_name = st.text_input("Name", value=current['name'])
+                    new_has_conv = st.checkbox("Includes Convention", value=bool(current['has_convention']))
+                    new_price = st.number_input("Price", value=float(current['price']), min_value=0.0, format="%.2f")
+                    new_conv_price = st.number_input("Convention Price", value=float(current['convention_price']), min_value=0.0, format="%.2f")
+                    selc = st.multiselect("Members", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _,r in get_students_for_competition(cid).iterrows()])
+                    if st.form_submit_button("Update Competition"):
+                        update_competition(cid,new_name,int(new_has_conv),new_price,new_conv_price)
+                        update_competition_members(cid,[student_map[s] for s in selc])
+                        st.success("Competition updated.")
+    with st.expander("Competitions List", expanded=False):
+        if compet_df.empty: st.write("No competitions.")
+        else:
+            for _,c in compet_df.sort_values('name').iterrows():
+                if st.button(f"{c['name']} (${c['price'] + (c['has_convention']*c['convention_price']):.2f}})", key=f"view_comp_{c['id']}"):
+                    st.write(get_students_for_competition(c['id']))
