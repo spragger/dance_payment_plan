@@ -3,7 +3,6 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
-
 # PDF generation
 from fpdf import FPDF
 
@@ -53,7 +52,14 @@ st.title("Payment Plans")
 # --- Manage Catalog ---
 with st.expander("Manage Item Catalog", expanded=False):
     st.subheader("Add Catalog Item")
-    categories = get_catalog_categories()
+    # Fixed categories for payment plan sections
+    fixed_categories = [
+        "Tuition", "Solo/Duo/Trio", "Groups", "Competitions & Conventions",
+        "Choreography", "Costume Fees", "Administrative Fees", "Miscellaneous Fees"
+    ]
+    # Use fixed sections first, then any additional from existing catalog
+    existing = get_catalog_categories()
+    categories = [c for c in fixed_categories] + [c for c in existing if c not in fixed_categories]
     category = st.selectbox("Category", categories, key="new_cat")
     item_name = st.text_input("Item Name", key="new_item_name")
     item_price = st.number_input("Item Price", min_value=0.0, format="%.2f", key="new_item_price")
