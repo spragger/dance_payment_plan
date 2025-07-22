@@ -313,5 +313,6 @@ elif menu == "🏆 Competitions":
         if compet_df.empty: st.write("No competitions.")
         else:
             for _,c in compet_df.sort_values('name').iterrows():
-                if st.button(f"{c['name']} (${c['price'] + (c['has_convention']*c['convention_price']):.2f}})", key=f"view_comp_{c['id']}"):
-                    st.write(get_students_for_competition(c['id']))
+                    label = f"{c['name']} (${c['price'] + (c['has_convention']*c['convention_price']):.2f})"
+                    if st.button(label, key=f"view_comp_{c['id']}"):
+                        st.write(get_students_for_competition(c['id']))
