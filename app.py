@@ -75,7 +75,8 @@ def get_dances_for_student(student_id):
     return pd.read_sql("""
         SELECT d.name, d.type FROM dances d
         JOIN dance_students ds ON ds.dance_id = d.id
-        WHERE ds.student_id = ?
+        JOIN students s ON ds.student_id = s.id
+        WHERE s.id = ?
     """, conn, params=(student_id,))
 
 # --- UI ---
@@ -116,7 +117,11 @@ if menu == "📋 Students":
         st.markdown(f"### {student['first_name']} {student['last_name']}")
         st.markdown(f"**DOB:** {student['dob']}")
         st.markdown("**Dances:**")
-        st.dataframe(get_dances_for_student(student['id']))
+        dances = get_dances_for_student(student['id'])
+        if not dances.empty:
+            st.dataframe(dances)
+        else:
+            st.info("No dances assigned to this student.")
 
         if st.button("Back to All Students"):
             st.session_state.view_student_id = None
