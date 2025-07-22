@@ -157,21 +157,21 @@ def get_competitions_for_student(sid):
         " WHERE cs.student_id = ?", conn, params=(sid,)
     )
 
-
 # --- Authentication Setup ---
 import streamlit_authenticator as stauth
 
-
 # Load raw credentials from Streamlit secrets
 raw_creds = st.secrets.get("credentials", {})
-# Transform into the shape expected by streamlit_authenticator
+# Build a standalone copy so we don't modify st.secrets
 if "users" in raw_creds:
-    credentials = {"usernames": raw_creds["users"]}
+    credentials = {"usernames": copy.deepcopy(raw_creds["users"]) }
 elif "usernames" in raw_creds:
-    credentials = {"usernames": raw_creds["usernames"]}
+    credentials = {"usernames": copy.deepcopy(raw_creds["usernames"]) }
 else:
     st.error("No user credentials found. Please define [credentials.users] or [credentials.usernames] in your secrets.")
     st.stop()
+
+
 
 # Cookie configuration
 cookie_conf = raw_creds.get("cookie", {})
@@ -186,7 +186,6 @@ authenticator = stauth.Authenticate(
     cookie_key,
     expiry_days,
 )
-
 
 # Render login/logout
 name, username, auth_status = authenticator.login("Login", "sidebar")
@@ -304,13 +303,11 @@ elif menu == "🕺 Dances":
             df_import = pd.read_csv(dances_file)
             st.dataframe(df_import)
             if st.button("Import Dances", key="btn_import_dances"):
-                # Build student map
                 students_df = get_all_students()
                 student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
                 for _, row in df_import.iterrows():
                     dtype = row.get('dancetype') or row.get('type')
                     name = row.get('dancename') or row.get('name')
-                    # Collect dancer labels from other columns
                     ids = []
                     for col in df_import.columns:
                         if col not in ['dancetype','dancename','type','name'] and pd.notna(row[col]):
@@ -324,7 +321,6 @@ elif menu == "🕺 Dances":
                     except Exception as e:
                         st.error(f"Error importing dance '{name}': {e}")
                 st.success("Dances imported from CSV.")
-
         # Create/Edit Dances
         dance_df = get_all_dances()
         students_df = get_all_students()
@@ -341,47 +337,52 @@ elif menu == "🕺 Dances":
             max_sel = limits.get(dtype)
             if st.button("Add Dance", key="btn_add_dance"):
                 ids = [student_map[s] for s in sel]
-                if max_sel and len(ids)!= max_sel:
+                if max_sel and len(ids) != max_sel:
                     st.error(f"{dtype} requires exactly {max_sel} student(s).")
                 else:
                     add_dance(name, dtype, ids)
                     st.success(f"Dance '{name}' created.")
         # Edit/Delete Dance
         with cols[1]:
-            st.subheader("Edit / Delete Competition")
-            compet_df_local = compet_df.copy()
-            options = {r['name']: r['id'] for _, r in compet_df_local.iterrows()}
-            choice = st.selectbox("Select Competition to Edit", ["--"] + list(options.keys()), key="edit_comp_sel")
+            st.subheader("Edit / Delete Dance")
+            options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
+            choice = st.selectbox("Select Dance to Edit", ["--"] + list(options.keys()), key="dance_edit_sel")
             if choice and choice != "--":
-                cid = options[choice]
-                current = compet_df_local[compet_df_local.id == cid].iloc[0]
-                df_m = get_students_for_competition(cid)
-                # Convert 'First Last' to 'Last, First'
+                did = options[choice]
+                current = dance_df[dance_df.id == did].iloc[0]
+                dtype = current['type']
+                new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
+                df_members = get_students_for_dance(did)
                 labels = []
-                for nm in df_m['name']:
+                for nm in df_members['name']:
                     parts = nm.split(' ', 1)
                     if len(parts) == 2:
                         labels.append(f"{parts[1]}, {parts[0]}")
-                selc = st.multiselect("Members", list(student_map.keys()), default=labels, key="edit_comp_members")
-                if st.button("Update Competition", key="btn_edit_comp"):
-                    update_competition(cid, current['name'], 0, [student_map[s] for s in selc])
-                    st.success("Competition updated.")
-                if st.button("Delete Competition", key="btn_delete_comp"):
-                    c.execute("DELETE FROM competition_students WHERE competition_id=?", (cid,))
-                    c.execute("DELETE FROM competitions WHERE id=?", (cid,))
-                    conn.commit()
-                    st.success(f"Deleted competition '{current['name']}'")
-        # Show lists in order
+                selm = st.multiselect("Members", list(student_map.keys()), default=labels, key="dance_edit_members")
+                limits = {"Solo":1, "Duet":2, "Trio":3, "Group":None}
+                max_sel = limits.get(dtype)
+                if st.button("Update Dance", key="btn_edit_dance"):
+                    ids = [student_map[s] for s in selm]
+                    if max_sel and len(ids) != max_sel:
+                        st.error(f"{dtype} requires exactly {max_sel} student(s).")
+                    else:
+                        update_dance(did, new_name, ids)
+                        st.success("Dance updated.")
+                if st.button("Delete Dance", key="btn_delete_dance"):
+                    delete_dance(did)
+                    st.success(f"Deleted dance '{current['name']}'")
+
+    # Show lists in order
     all_d = get_all_dances()
     for dtype in ["Solo","Duet","Trio","Group"]:
         with st.expander(f"{dtype} List", expanded=False):
-            subset = all_d[all_d.type==dtype].sort_values('name')
+            subset = all_d[all_d.type == dtype].sort_values('name')
             if subset.empty:
                 st.write("No dances.")
             else:
-                for _,d in subset.iterrows():
+                for _, d in subset.iterrows():
                     did = d['id']
-                    if dtype=='Solo':
+                    if dtype == 'Solo':
                         members = get_students_for_dance(did)
                         mem = members['name'].iloc[0] if not members.empty else 'Unassigned'
                         st.write(f"- {d['name']} – {mem}")
@@ -390,8 +391,8 @@ elif menu == "🕺 Dances":
                             mems = get_students_for_dance(did)['name'].tolist()
                             if not mems:
                                 st.write("No members.")
-                            elif dtype=='Group':
-                                for i,m in enumerate(mems, start=1):
+                            elif dtype == 'Group':
+                                for i, m in enumerate(mems, start=1):
                                     st.write(f"{i}. {m}")
                             else:
                                 for m in mems:
