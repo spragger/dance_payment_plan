@@ -39,6 +39,24 @@ CREATE TABLE IF NOT EXISTS dance_students (
 );
 """)
 
+c.execute("""
+CREATE TABLE IF NOT EXISTS competitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    has_convention INTEGER NOT NULL CHECK (has_convention IN (0, 1))
+);
+""")
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS competition_students (
+    competition_id INTEGER,
+    student_id INTEGER,
+    FOREIGN KEY (competition_id) REFERENCES competitions(id),
+    FOREIGN KEY (student_id) REFERENCES students(id),
+    PRIMARY KEY (competition_id, student_id)
+);
+""")
+
 conn.commit()
 
 # --- FUNCTIONS ---
@@ -79,9 +97,19 @@ def get_dances_for_student(student_id):
         WHERE s.id = ?
     """, conn, params=(student_id,))
 
+def add_competition(name, has_convention, student_ids):
+    c.execute("INSERT INTO competitions (name, has_convention) VALUES (?, ?)", (name, has_convention))
+    comp_id = c.lastrowid
+    for sid in student_ids:
+        c.execute("INSERT INTO competition_students (competition_id, student_id) VALUES (?, ?)", (comp_id, sid))
+    conn.commit()
+
+def get_all_competitions():
+    return pd.read_sql("SELECT * FROM competitions", conn)
+
 # --- UI ---
 st.set_page_config(page_title="Dance Studio Manager", layout="wide")
-menu = st.sidebar.selectbox("Navigate", ["📋 Students", "🕺 Dances", "🔍 Search"])
+menu = st.sidebar.selectbox("Navigate", ["📋 Students", "🕺 Dances", "🏆 Competitions", "🔍 Search"])
 
 st.title("Dance Studio Manager")
 
@@ -149,6 +177,23 @@ elif menu == "🕺 Dances":
             st.markdown(f"**{row['name']} ({row['type']})**")
             dancers = get_students_for_dance(row['id'])
             st.dataframe(dancers[["first_name", "last_name", "dob"]])
+
+elif menu == "🏆 Competitions":
+    st.header("Create Competition")
+    with st.form("create_competition_form"):
+        comp_name = st.text_input("Competition Name")
+        has_conv = st.checkbox("Includes Convention")
+        student_df = get_all_students()
+        options = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in student_df.iterrows()}
+        selected_labels = st.multiselect("Select Registered Students", options=list(options.keys()))
+        selected_ids = [options[label] for label in selected_labels]
+        submit_comp = st.form_submit_button("Create Competition")
+        if submit_comp:
+            add_competition(comp_name, int(has_conv), selected_ids)
+            st.success(f"Competition '{comp_name}' created.")
+
+    st.subheader("All Competitions")
+    st.dataframe(get_all_competitions())
 
 elif menu == "🔍 Search":
     st.header("Search")
