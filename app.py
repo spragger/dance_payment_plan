@@ -368,53 +368,49 @@ elif menu == "🏆 Competitions":
 # --- Payment Plans Page ---
 elif menu == "💳 Payment Plans":
     st.header("Payment Plans")
+
+    # --- Manage Templates ---
+    with st.expander("Manage Payment Templates", expanded=False):
+        templates_df = payment_plan.get_templates()
+        if templates_df.empty:
+            st.write("No templates defined.")
+        else:
+            for _, tmpl in templates_df.iterrows():
+                st.write(f"- {tmpl['name']}")
+        new_tmpl = st.text_input("New Template Name", key="tmpl_name")
+        if st.button("Add Template", key="btn_add_tmpl"):
+            if new_tmpl:
+                payment_plan.add_template(new_tmpl)
+                st.success(f"Template '{new_tmpl}' added.")
+            else:
+                st.error("Enter a template name.")
+    st.markdown("---")
+
+    # --- Instantiate Payment Plan ---
     students_df = get_all_students()
-    student_map = {f"{r['last_name']}, {r['first_name']}":r['id'] for _,r in students_df.iterrows()}
-    sel = st.selectbox("Select Student", ["--"]+list(student_map.keys()), key="pp_student")
-    if sel and sel!="--":
-        sid = student_map[sel]
-        dances = [r['name'] for r in get_dances_for_student(sid).to_dict('records')]
-        competitions = [r['name'] for r in payment_plan.get_competitions_for_student(sid).to_dict('records')]
-        with st.form("payment_plan_form"):
-            st.subheader("Subtotals")
-            tuition_amt = st.number_input("Tuition Subtotal", min_value=0.0, format="%.2f", key="pp_tuition_amt")
-            sdt_amt = st.number_input("Solo/Duo/Trio Subtotal", min_value=0.0, format="%.2f", key="pp_sdt_amt")
-            group_amt = st.number_input("Group Subtotal", min_value=0.0, format="%.2f", key="pp_group_amt")
-            comp_amt = st.number_input("Competitions & Conventions Subtotal", min_value=0.0, format="%.2f", key="pp_comp_amt")
-            choreo_amt = st.number_input("Choreography Subtotal", min_value=0.0, format="%.2f", key="pp_choreo_amt")
-            costume_amt = st.number_input("Costume Fees Subtotal", min_value=0.0, format="%.2f", key="pp_costume_amt")
-            admin_amt = st.number_input("Administrative Fees Subtotal", min_value=0.0, format="%.2f", key="pp_admin_amt")
-            misc_amt = st.number_input("Misc Fees Subtotal", min_value=0.0, format="%.2f", key="pp_misc_amt")
-
-            grand_total = sum([tuition_amt, sdt_amt, group_amt, comp_amt, choreo_amt, costume_amt, admin_amt, misc_amt])
-            st.markdown(f"**Grand Total:** ${grand_total:.2f}")
-
-            st.subheader("Down Payments")
-            down1 = st.number_input("Down Payment 1", min_value=0.0, format="%.2f", key="pp_down1")
-            down2 = st.number_input("Down Payment 2", min_value=0.0, format="%.2f", key="pp_down2")
-            total_down = down1 + down2
-            st.markdown(f"**Total Down:** ${total_down:.2f}")
-
-            remaining = grand_total - total_down
-            st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
-
-            months = st.slider("Number of Months", 6, 10, 6, key="pp_months")
-            st.markdown(f"**Monthly ({months} mo):** ${(remaining/months):.2f}")
-
-            submitted = st.form_submit_button("Save Payment Plan")
-        if submitted:
-            # Persist payment plan via payment_plan module
-            plan_id = payment_plan.add_student_plan(sid, None)
-            # Store subtotals
-            payment_plan.add_plan_item(plan_id, "Tuition", tuition_amt, "Tuition")
-            payment_plan.add_plan_item(plan_id, "Solo/Duo/Trio", sdt_amt, "Solo/Duo/Trio")
-            payment_plan.add_plan_item(plan_id, "Groups", group_amt, "Group")
-            payment_plan.add_plan_item(plan_id, "Competitions & Conventions", comp_amt, "Competition")
-            payment_plan.add_plan_item(plan_id, "Choreography", choreo_amt, "Choreography")
-            payment_plan.add_plan_item(plan_id, "Costume Fees", costume_amt, "Costume")
-            payment_plan.add_plan_item(plan_id, "Administrative Fees", admin_amt, "Administrative")
-            payment_plan.add_plan_item(plan_id, "Misc Fees", misc_amt, "Miscellaneous")
-            st.success("Payment plan saved.")
+    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+    sel_student = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="pp_student")
+    if sel_student and sel_student != "--":
+        sid = student_map[sel_student]
+        # Template selection
+        templates_df = payment_plan.get_templates()
+        tmpl_names = templates_df['name'].tolist()
+        sel_tmpl = st.selectbox("Select Template", ["--"] + tmpl_names, key="pp_tmpl_sel")
+        if sel_tmpl and sel_tmpl != "--":
+            trow = templates_df[templates_df.name == sel_tmpl].iloc[0]
+            items_df = payment_plan.get_template_items(trow.id)
+            st.write(f"### Items in '{sel_tmpl}'")
+            if items_df.empty:
+                st.info("No items in this template.")
+            else:
+                for _, itm in items_df.iterrows():
+                    st.write(f"- {itm['item_type']}: {itm['name']} (${itm['price']:.2f})")
+            if st.button("Instantiate Plan", key="btn_instantiate_plan"):
+                plan_id = payment_plan.add_student_plan(sid, trow.id)
+                for _, itm in items_df.iterrows():
+                    payment_plan.add_plan_item(plan_id, itm['name'], itm['price'], itm['item_type'])
+                st.success("Payment plan created from template.")
 
 else:
+    st.info("Select a module from the sidebar.")
     st.info("Select a module from the sidebar.")
