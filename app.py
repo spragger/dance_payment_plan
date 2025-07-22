@@ -338,9 +338,15 @@ elif menu == "🏆 Competitions":
         if compet_df.empty:
             st.write("No competitions.")
         else:
-            for _,c in compet_df.sort_values('name').iterrows():
+            for _, c in compet_df.sort_values('name').iterrows():
                 if st.button(c['name'], key=f"view_comp_{c['id']}"):
-                    st.write(get_students_for_competition(c['id']))
+                    members_df = get_students_for_competition(c['id'])
+                    members = members_df['name'].tolist()
+                    if not members:
+                        st.write("No members.")
+                    else:
+                        for i, m in enumerate(members, start=1):
+                            st.write(f"{i}. {m}")
 
 # --- Payment Plans Page ---
 elif menu == "💳 Payment Plans":
