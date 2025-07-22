@@ -60,19 +60,15 @@ def add_student(first, last, dob):
     )
     conn.commit()
 
- def update_student(sid, first, last, dob):
+def update_student(sid, first, last, dob):
     c.execute(
         "UPDATE students SET first_name=?, last_name=?, dob=? WHERE id=?",
         (first, last, dob, sid),
     )
     conn.commit()
 
-def get_all_students():
-    return pd.read_sql(
-        "SELECT * FROM students ORDER BY last_name, first_name", conn
-    )
-
 # Dance functions
+
 def add_dance(name, dtype, student_ids):
     c.execute("INSERT INTO dances (name, type) VALUES (?, ?)", (name, dtype))
     dance_id = c.lastrowid
@@ -98,21 +94,22 @@ def get_all_dances():
         "SELECT * FROM dances ORDER BY type, name", conn
     )
 
-def get_students_for_dance(did):
+def get_students_for_dance(dance_id):
     return pd.read_sql(
         "SELECT s.first_name || ' ' || s.last_name AS name FROM students s"
         " JOIN dance_students ds ON s.id = ds.student_id"
-        " WHERE ds.dance_id = ?", conn, params=(did,)
+        " WHERE ds.dance_id = ?", conn, params=(dance_id,)
     )
 
-def get_dances_for_student(sid):
+def get_dances_for_student(student_id):
     return pd.read_sql(
         "SELECT d.name AS name, d.type AS type FROM dances d"
         " JOIN dance_students ds ON d.id = ds.dance_id"
-        " WHERE ds.student_id = ?", conn, params=(sid,)
+        " WHERE ds.student_id = ?", conn, params=(student_id,)
     )
 
 # Competition functions
+
 def add_competition(name, has_conv, student_ids):
     c.execute(
         "INSERT INTO competitions (name, has_convention) VALUES (?, ?)",
@@ -140,7 +137,9 @@ def update_competition(cid, name, has_conv, student_ids):
     conn.commit()
 
 def get_all_competitions():
-    return pd.read_sql("SELECT * FROM competitions ORDER BY name", conn)
+    return pd.read_sql(
+        "SELECT * FROM competitions ORDER BY name", conn
+    )
 
 def get_students_for_competition(comp_id):
     return pd.read_sql(
@@ -149,11 +148,11 @@ def get_students_for_competition(comp_id):
         " WHERE cs.competition_id = ?", conn, params=(comp_id,)
     )
 
-def get_competitions_for_student(sid):
+def get_competitions_for_student(student_id):
     return pd.read_sql(
         "SELECT c.name AS name FROM competitions c"
         " JOIN competition_students cs ON c.id = cs.competition_id"
-        " WHERE cs.student_id = ?", conn, params=(sid,)
+        " WHERE cs.student_id = ?", conn, params=(student_id,)
     )
 
 # --- UI ---
@@ -165,6 +164,7 @@ st.title("Dance Studio Manager")
 
 # Students Page
 if menu == "📋 Students":
+    # Manage form
     with st.expander("Manage Students", expanded=False):
         with st.form("add_student_form"):
             fn = st.text_input("First Name")
@@ -174,30 +174,27 @@ if menu == "📋 Students":
                 add_student(fn, ln, dob.isoformat())
                 st.success(f"Added {fn} {ln}")
         students_df = get_all_students()
-        student_map = {
-            f"{r['last_name']}, {r['first_name']}": r['id']
-            for _, r in students_df.iterrows()
-        }
-        sel = st.selectbox(
-            "Select Student", ["--"] + list(student_map.keys())
-        )
+        student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+        sel = st.selectbox("Select Student", ["--"] + list(student_map.keys()))
         if sel and sel != "--":
             sid = student_map[sel]
             stu = students_df[students_df.id == sid].iloc[0]
             st.subheader(f"{stu['first_name']} {stu['last_name']}")
             st.write(f"**DOB:** {stu['dob']}")
+            # Dances
             st.write("**Dances:**")
-            df_dances = get_dances_for_student(sid)
-            if df_dances.empty:
+            df_d = get_dances_for_student(sid)
+            if df_d.empty:
                 st.write("No dances.")
             else:
-                st.write(df_dances['name'].tolist())
+                st.write(df_d['name'].tolist())
+            # Competitions
             st.write("**Competitions:**")
-            df_comps = get_competitions_for_student(sid)
-            if df_comps.empty:
+            df_c = get_competitions_for_student(sid)
+            if df_c.empty:
                 st.write("No competitions.")
             else:
-                st.write(df_comps['name'].tolist())
+                st.write(df_c['name'].tolist())
 
 # Dances Page
 elif menu == "🕺 Dances":
