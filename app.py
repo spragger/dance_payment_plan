@@ -67,6 +67,14 @@ def update_student(sid, first, last, dob):
     )
     conn.commit()
 
+def delete_student(sid):
+    # Remove associations
+    c.execute("DELETE FROM dance_students WHERE student_id=?", (sid,))
+    c.execute("DELETE FROM competition_students WHERE student_id=?", (sid,))
+    # Remove student
+    c.execute("DELETE FROM students WHERE id=?", (sid,))
+    conn.commit()
+
 # Fetch all students
 def get_all_students():
     return pd.read_sql(
@@ -185,36 +193,39 @@ if menu == "📋 Students":
         if fn and ln:
             add_student(fn, ln, dob.isoformat())
             st.success(f"Added {fn} {ln}")
-            # Refresh data by rerunning the app automatically on next interaction
         else:
             st.error("Please enter both first and last name.")
 
     st.markdown("---")
 
     # Edit Existing Student
-    st.subheader("Edit Existing Student")
-    sel_edit = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()))
+    st.subheader("Edit or Delete Student")
+    sel_edit = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="edit_sel")
     if sel_edit and sel_edit != "--":
         sid = student_map[sel_edit]
         stu = students_df[students_df.id == sid].iloc[0]
+        # Edit Form
         with st.form("edit_student_form"):
             fn2 = st.text_input("First Name", value=stu['first_name'])
             ln2 = st.text_input("Last Name", value=stu['last_name'])
             dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1))
             submitted_edit = st.form_submit_button("Update Student")
+            submitted_delete = st.form_submit_button("Delete Student")
         if submitted_edit:
             if fn2 and ln2:
                 update_student(sid, fn2, ln2, dob2.isoformat())
                 st.success(f"Updated {fn2} {ln2}")
-                # Changes will reflect on next rerun
             else:
                 st.error("Please enter both first and last name.")
+        if submitted_delete:
+            delete_student(sid)
+            st.success(f"Deleted {sel_edit}")
 
     st.markdown("---")
 
     # View Student Profile
     st.subheader("View Student Profile")
-    sel_view = st.selectbox("Select Student", ["--"] + list(student_map.keys()))
+    sel_view = st.selectbox("Select Student to View", ["--"] + list(student_map.keys()), key="view_sel")
     if sel_view and sel_view != "--":
         sid = student_map[sel_view]
         stu = students_df[students_df.id == sid].iloc[0]
@@ -247,7 +258,7 @@ elif menu == "🕺 Dances":
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
         dance_types = ["Solo", "Duet", "Trio", "Group"]
         cols = st.columns(2)
-                # Create
+        # Create
         with cols[0]:
             st.subheader("Create Dance")
             name = st.text_input("Name", key="dance_new_name")
@@ -266,24 +277,17 @@ elif menu == "🕺 Dances":
         # Edit
         with cols[1]:
             st.subheader("Edit Dance")
+            dance_df = get_all_dances()
             options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
             choice = st.selectbox("Select Dance", ["--"] + list(options.keys()), key="dance_edit_sel")
             if choice and choice != "--":
                 did = options[choice]
                 current = dance_df[dance_df.id == did].iloc[0]
                 dtype = current['type']
-                # Editable name field
                 new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
-                # Prepare default labels (Last, First) from stored First Last names
                 df_members = get_students_for_dance(did)
-                labels = []
-                for nm in df_members['name'].tolist():
-                    parts = nm.split(' ', 1)
-                    if len(parts) == 2:
-                        labels.append(f"{parts[1]}, {parts[0]}")
-                # Member selection
-                selm = st.multiselect("Members", options=list(student_map.keys()), default=labels, key="dance_edit_members")
-                # Enforce selection limits
+                labels = [f"{nm.split(' ',1)[1]}, {nm.split(' ',1)[0]}" for nm in df_members['name'].tolist()]
+                selm = st.multiselect("Members", list(student_map.keys()), default=labels, key="dance_edit_members")
                 limits = {"Solo": 1, "Duet": 2, "Trio": 3, "Group": None}
                 max_sel = limits.get(dtype)
                 if st.button("Update Dance", key="btn_edit_dance"):
@@ -309,7 +313,6 @@ elif menu == "🕺 Dances":
                         member = members['name'].iloc[0] if not members.empty else 'Unassigned'
                         st.write(f"- {d['name']} – {member}")
                     else:
-                        # click to show members
                         if st.button(d['name'], key=f"view_dance_{did}"):
                             members = get_students_for_dance(did)['name'].tolist()
                             if not members:
