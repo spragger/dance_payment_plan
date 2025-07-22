@@ -106,13 +106,28 @@ if menu == "📋 Students":
 
     st.subheader("All Students")
     students_df = get_all_students()
-    selected_student = st.selectbox("View Student Profile", options=students_df["id"], format_func=lambda x: f"{students_df.loc[students_df.id == x, 'first_name'].values[0]} {students_df.loc[students_df.id == x, 'last_name'].values[0]}")
-    if selected_student:
-        student = students_df[students_df["id"] == selected_student].iloc[0]
+    if "view_student_id" not in st.session_state:
+        st.session_state.view_student_id = None
+
+    if st.session_state.view_student_id is None:
+        for _, row in students_df.iterrows():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"**{row['last_name']}, {row['first_name']}** – DOB: {row['dob']}")
+            with col2:
+                if st.button("View Profile", key=f"view_{row['id']}"):
+                    st.session_state.view_student_id = row['id']
+                    st.experimental_rerun()
+    else:
+        student = students_df[students_df["id"] == st.session_state.view_student_id].iloc[0]
         st.markdown(f"### {student['first_name']} {student['last_name']}")
         st.markdown(f"**DOB:** {student['dob']}")
         st.markdown("**Dances:**")
         st.dataframe(get_dances_for_student(student['id']))
+
+        if st.button("Back to All Students"):
+            st.session_state.view_student_id = None
+            st.experimental_rerun()
 
 elif menu == "🕺 Dances":
     st.header("Create Dance")
