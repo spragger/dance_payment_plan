@@ -250,27 +250,11 @@ elif menu == "🕺 Dances":
                     st.success(f"Dance '{name}' created.")
         # Edit/Delete Dance
         with cols[1]:
-            compet_df_local = compet_df.copy()
-            options = {r['name']:r['id'] for _,r in compet_df_local.iterrows()}
-            choice = st.selectbox("Select Competition", ["--"]+list(options.keys()), key="edit_comp_sel")
+            st.subheader("Edit / Delete Dance")
+            dance_df = get_all_dances()
+            options = {f"{r['type']}: {r['name']}":r['id'] for _,r in dance_df.iterrows()}
+            choice = st.selectbox("Select Dance", ["--"]+list(options.keys()), key="dance_edit_sel")
             if choice and choice!="--":
-                cid = options[choice]
-                df_m = get_students_for_competition(cid)
-                # Convert 'First Last' to 'Last, First' for multiselect defaults
-                labels = []
-                for nm in df_m['name'].tolist():
-                    parts = nm.split(' ', 1)
-                    if len(parts) == 2:
-                        labels.append(f"{parts[1]}, {parts[0]}")
-                selc = st.multiselect("Members", list(student_map.keys()), default=labels, key="edit_comp_members")
-                if st.button("Update Competition", key="btn_edit_comp"):
-                    update_competition(cid, choice, 0, [student_map[s] for s in selc])
-                    st.success("Competition updated.")
-                if st.button("Delete Competition", key="btn_delete_comp"):
-                    c.execute("DELETE FROM competition_students WHERE competition_id=?",(cid,))
-                    c.execute("DELETE FROM competitions WHERE id=?",(cid,))
-                    conn.commit()
-                    st.success(f"Deleted competition '{choice}'")
                 did = options[choice]
                 current = dance_df[dance_df.id==did].iloc[0]
                 dtype = current['type']
