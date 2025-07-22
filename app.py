@@ -250,11 +250,16 @@ elif menu == "🕺 Dances":
                         labels.append(f"{parts[1]}, {parts[0]}")
                 # Member selection
                 selm = st.multiselect("Members", options=list(student_map.keys()), default=labels, key="dance_edit_members")
+                # Enforce selection limits
+                limits = {"Solo": 1, "Duet": 2, "Trio": 3, "Group": None}
+                max_sel = limits.get(dtype)
                 if st.button("Update Dance", key="btn_edit_dance"):
-                    # Convert selected labels back to IDs
                     sel_ids = [student_map[s] for s in selm]
-                    update_dance(did, new_name, sel_ids)
-                    st.success("Dance updated.")
+                    if max_sel is not None and len(sel_ids) != max_sel:
+                        st.error(f"{dtype} requires exactly {max_sel} student(s).")
+                    else:
+                        update_dance(did, new_name, sel_ids)
+                        st.success("Dance updated.")
 
     # Display lists in order
     dance_df = get_all_dances()
