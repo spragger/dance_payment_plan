@@ -124,13 +124,26 @@ def add_competition(name, has_conv, student_ids):
     conn.commit()
 
 def update_competition(cid, name, has_conv, student_ids):
-    c.execute("UPDATE competitions SET name=?, has_convention=? WHERE id=?",
-              (name, has_conv, cid))
+    c.execute(
+        "UPDATE competitions SET name=?, has_convention=? WHERE id=?",
+        (name, has_conv, cid),
+    )
     c.execute("DELETE FROM competition_students WHERE competition_id=?", (cid,))
     for sid in student_ids:
-        c.execute("INSERT INTO competition_students (competition_id, student_id) VALUES (?, ?)",
-                  (cid, sid))
+        c.execute(
+            "INSERT INTO competition_students (competition_id, student_id) VALUES (?, ?)",
+            (cid, sid),
+        )
     conn.commit()
+
+# Fetch students for a competition
+def get_students_for_competition(comp_id):
+    return pd.read_sql(
+        "SELECT s.first_name || ' ' || s.last_name AS name FROM students s"
+        " JOIN competition_students cs ON s.id = cs.student_id"
+        " WHERE cs.competition_id = ?",
+        conn, params=(comp_id,)
+    )
 
 # UI Setup
 st.set_page_config(page_title="EDOT Company Manager", layout="wide")
