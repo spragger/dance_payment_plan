@@ -193,14 +193,14 @@ if menu == "📋 Students":
             if df_d.empty:
                 st.write("No dances.")
             else:
-                st.write(df_d['name'].tolist())
+                st.table(df_d)
             # Competitions
             st.write("**Competitions:**")
             df_c = get_competitions_for_student(sid)
             if df_c.empty:
                 st.write("No competitions.")
             else:
-                st.write(df_c['name'].tolist())
+                st.table(df_c)
 
 # Dances Page
 elif menu == "🕺 Dances":
