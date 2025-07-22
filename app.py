@@ -191,27 +191,24 @@ if menu == "📋 Students":
 
     st.markdown("---")
 
-    # Edit Student Form
+    # Edit Student
     st.subheader("Edit Existing Student")
-    with st.form("edit_student_form"):
-        edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
-        if edit_sel and edit_sel != "--":
-            sid = student_map[edit_sel]
-            stu = students_df[students_df.id == sid].iloc[0]
+    edit_sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()), key="edit_sel")
+    if edit_sel and edit_sel != "--":
+        sid = student_map[edit_sel]
+        stu = students_df[students_df.id == sid].iloc[0]
+        with st.form("edit_student_form"):
             fn2 = st.text_input("First Name", value=stu['first_name'], key="edit_fn")
             ln2 = st.text_input("Last Name", value=stu['last_name'], key="edit_ln")
             dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900,1,1), key="edit_dob")
-        else:
-            sid = None
-            fn2 = ln2 = dob2 = None
-        submitted_edit = st.form_submit_button("Update Student")
-    if submitted_edit:
-        if sid and fn2 and ln2:
-            update_student(sid, fn2, ln2, dob2.isoformat())
-            st.success(f"Updated {fn2} {ln2}")
-            st.experimental_rerun()
-        else:
-            st.error("Select a student and ensure names are provided.")
+            submitted_edit = st.form_submit_button("Update Student")
+        if submitted_edit:
+            if fn2 and ln2:
+                update_student(sid, fn2, ln2, dob2.isoformat())
+                st.success(f"Updated {fn2} {ln2}")
+                st.experimental_rerun()
+            else:
+                st.error("Please provide both first and last name.")
 
     st.markdown("---")
 
