@@ -149,9 +149,9 @@ if sel_student and sel_student != "--":
         pdf.cell(40, 8, f"${remaining:.2f}", ln=1)
         pdf.cell(120, 8, f"Installment ({months} mo)")
         pdf.cell(40, 8, f"${installment:.2f}", ln=1)
-        # Download button
-        pdf_str = pdf.output(dest='S')
-        data = pdf_str.encode('latin-1')
+                # Download button
+        # fpdf.output(dest='S') returns bytes
+        data = pdf.output(dest='S')
         st.success("Generated PDF")
         st.download_button(
             "Download PDF",
@@ -160,4 +160,5 @@ if sel_student and sel_student != "--":
             mime='application/pdf'
         )
 else:
+    st.info("Select a student to begin.")
     st.info("Select a student to begin.")
