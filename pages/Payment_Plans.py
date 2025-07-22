@@ -3,6 +3,39 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
+import streamlit_authenticator as stauth
+
+# --- USER AUTHENTICATION ---
+# Load credentials from st.secrets
+credentials = st.secrets['credentials']
+cookie_config = st.secrets['cookie']
+
+authenticator = stauth.Authenticate(
+    credentials,
+    cookie_config['name'],
+    cookie_config['key'],
+    cookie_config['expiry_days'],
+)
+
+# Render the login module
+name, authentication_status, username = authenticator.login(location='main')
+
+# --- Main App Logic ---
+# Logic to control app flow based on authentication status
+if authentication_status == False:
+    st.error("Username/password is incorrect")
+
+if authentication_status == None:
+    st.warning("Please enter your username and password")
+
+if authentication_status:
+    # --- APP Renders After Login ---
+    authenticator.logout("Logout", "sidebar") # Put the logout button in the sidebar
+    st.sidebar.title(f"Welcome {name}")
+    
+    st.title(" Vercel AI Chatbot 🤖")
+    st.write("This is your main application, accessible only after login.")
+    # Add the rest of your app logic here
 
 
 # --- DATABASE CONNECTION ---
