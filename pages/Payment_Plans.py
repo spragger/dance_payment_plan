@@ -3,7 +3,11 @@ import sqlite3
 import pandas as pd
 import os
 import io
-from weasyprint import HTML
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 
 # --- DATABASE CONNECTION ---
@@ -70,56 +74,70 @@ def add_catalog_item(category, name, price):
     conn.commit()
 
 def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, months, installment):
-    """Generates a PDF summary using HTML and WeasyPrint."""
+    """Generates a PDF summary using ReportLab."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    styles = getSampleStyleSheet()
 
-    # --- Build the HTML Content ---
-    # We create a single HTML string with embedded CSS for styling.
-    html_content = f"""
-    <html>
-    <head>
-        <style>
-            @page {{ margin: 20mm; }}
-            body {{ font-family: sans-serif; font-size: 12px; }}
-            h1 {{ text-align: center; color: #333; }}
-            h2 {{ color: #555; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;}}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #f2f2f2; }}
-            .summary-table td {{ border: none; text-align: right; padding: 5px; }}
-            .summary-table .label {{ font-weight: bold; }}
-            .total-row td {{ border-top: 1px solid #333; font-weight: bold; font-size: 14px;}}
-        </style>
-    </head>
-    <body>
-        <h1>Payment Plan for {student_name}</h1>
-    """
+    # Add a centered title style
+    styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
+
+    # Create the story (the flow of content)
+    story = []
+
+    # Title
+    story.append(Paragraph(f"Payment Plan for {student_name}", styles['h1']))
+    story.append(Spacer(1, 12))
 
     # --- Items Section ---
     items_df = df_summary[~df_summary['Category'].str.contains("Down Payment")]
     for category in items_df['Category'].unique():
-        html_content += f"<h2>{category}</h2>"
-        html_content += "<table><tr><th>Item</th><th style='text-align:right;'>Price</th></tr>"
+        story.append(Paragraph(category, styles['h2']))
+        
+        table_data = [['Item', 'Price']]
         category_items = items_df[items_df['Category'] == category]
         for _, row in category_items.iterrows():
-            html_content += f"<tr><td>{row['Item']}</td><td style='text-align:right;'>${row['Price']:,.2f}</td></tr>"
-        html_content += "</table>"
+            # Format price as string
+            price_str = f"${row['Price']:,.2f}"
+            table_data.append([Paragraph(row['Item'], styles['BodyText']), price_str])
+        
+        # Create and style the table
+        item_table = Table(table_data, colWidths=[350, 100])
+        item_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('ALIGN', (1,1), (-1,-1), 'RIGHT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('BACKGROUND', (0,1), (-1,-1), colors.white),
+            ('GRID', (0,0), (-1,-1), 1, colors.lightgrey)
+        ]))
+        story.append(item_table)
+        story.append(Spacer(1, 12))
 
     # --- Summary Section ---
-    html_content += "<h2>Plan Summary</h2>"
-    html_content += """
-    <table class='summary-table'>
-        <tr><td class='label'>Grand Total:</td><td>${:,.2f}</td></tr>
-        <tr><td class='label'>Total Down Payments:</td><td>${:,.2f}</td></tr>
-        <tr><td class='label'>Remaining Balance:</td><td>${:,.2f}</td></tr>
-        <tr class='total-row'><td class='label'>Monthly Installment ({:d} mo):</td><td>${:,.2f}</td></tr>
-    </table>
-    """.format(grand_total, total_down, remaining, months, installment)
+    story.append(Paragraph("Plan Summary", styles['h2']))
+    summary_data = [
+        ['Grand Total:', f'${grand_total:,.2f}'],
+        ['Total Down Payments:', f'${total_down:,.2f}'],
+        ['Remaining Balance:', f'${remaining:,.2f}'],
+        [Paragraph(f'<b>Monthly Installment ({months} mo):</b>', styles['BodyText']), f'<b>${installment:,.2f}</b>'],
+    ]
+    summary_table = Table(summary_data, colWidths=[200, 100])
+    summary_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
+        ('FONTNAME', (0,3), (-1,3), 'Helvetica-Bold'), # Make last row bold
+    ]))
+    story.append(summary_table)
 
-    html_content += "</body></html>"
-
-    # --- Generate PDF from HTML ---
-    # WeasyPrint handles the conversion from the HTML string to PDF bytes.
-    return HTML(string=html_content).write_pdf()
+    # Build the PDF
+    doc.build(story)
+    
+    # Get the value of the BytesIO buffer and return it
+    pdf = buffer.getvalue()
+    buffer.close()
+    return pdf
 
 # --- UI ---
 st.set_page_config(page_title="Payment Plans", layout="wide")

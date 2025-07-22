@@ -1,3 +1,0 @@
-libpango-1.56.4
-libgdk-pixbuf2.0-0
-libcairo2

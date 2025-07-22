@@ -3,4 +3,4 @@ pandas
 python-dateutil
 streamlit-authenticator
 python-dateutil
-weasyprint
+reportlab
