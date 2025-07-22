@@ -207,7 +207,7 @@ if menu == "📋 Students":
         st.write(f"**DOB:** {stu['dob']}")
         # Dances
         st.write("**Dances:**")
-        df_d = get_dances_for_student(sid)
+        df_d = get_students_for_dance(sid)
         if df_d.empty:
             st.write("No dances.")
         else:
@@ -215,9 +215,7 @@ if menu == "📋 Students":
                 st.write(f"- {dance}")
         # Competitions
         st.write("**Competitions:**")
-        df_c = pd.read_sql(
-            "SELECT c.name FROM competitions c JOIN competition_students cs ON c.id=cs.competition_id WHERE cs.student_id=?", conn, params=(sid,)
-        )
+        df_c = get_students_for_competition(sid)
         if df_c.empty:
             st.write("No competitions.")
         else:
@@ -251,25 +249,28 @@ elif menu == "🕺 Dances":
         # Edit/Delete Dance
         with cols[1]:
             st.subheader("Edit / Delete Dance")
-            dance_df = get_all_dances()
             options = {f"{r['type']}: {r['name']}":r['id'] for _,r in dance_df.iterrows()}
-            choice = st.selectbox("Select Dance", ["--"]+list(options.keys()), key="dance_edit_sel")
+            choice = st.selectbox("Select Dance to Edit", ["--"]+list(options.keys()), key="dance_edit_sel")
             if choice and choice!="--":
                 did = options[choice]
                 current = dance_df[dance_df.id==did].iloc[0]
                 dtype = current['type']
                 new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
                 df_members = get_students_for_dance(did)
-                labels = [f"{nm.split(' ',1)[1]}, {nm.split(' ',1)[0]}" for nm in df_members['name']]
+                labels = []
+                for nm in df_members['name']:
+                    parts = nm.split(' ',1)
+                    if len(parts)==2:
+                        labels.append(f"{parts[1]}, {parts[0]}")
                 selm = st.multiselect("Members", list(student_map.keys()), default=labels, key="dance_edit_members")
                 limits = {"Solo":1, "Duet":2, "Trio":3, "Group":None}
                 max_sel = limits.get(dtype)
                 if st.button("Update Dance", key="btn_edit_dance"):
-                    ids = [student_map[s] for s in selm]
-                    if max_sel and len(ids) != max_sel:
+                    sel_ids = [student_map[s] for s in selm]
+                    if max_sel is not None and len(sel_ids)!=max_sel:
                         st.error(f"{dtype} requires exactly {max_sel} student(s).")
                     else:
-                        update_dance(did, new_name, ids)
+                        update_dance(did, new_name, sel_ids)
                         st.success("Dance updated.")
                 if st.button("Delete Dance", key="btn_delete_dance"):
                     delete_dance(did)
@@ -320,20 +321,25 @@ elif menu == "🏆 Competitions":
         with cols[1]:
             compet_df_local = compet_df.copy()
             options = {r['name']:r['id'] for _,r in compet_df_local.iterrows()}
-            choice = st.selectbox("Select Competition", ["--"]+list(options.keys()), key="edit_comp_sel")
+            choice = st.selectbox("Select Competition to Edit", ["--"]+list(options.keys()), key="edit_comp_sel")
             if choice and choice!="--":
                 cid = options[choice]
+                current = compet_df_local[compet_df_local.id==cid].iloc[0]
                 df_m = get_students_for_competition(cid)
-                labels = df_m['name'].tolist()
+                labels = []
+                for nm in df_m['name']:
+                    parts = nm.split(' ',1)
+                    if len(parts)==2:
+                        labels.append(f"{parts[1]}, {parts[0]}")
                 selc = st.multiselect("Members", list(student_map.keys()), default=labels, key="edit_comp_members")
                 if st.button("Update Competition", key="btn_edit_comp"):
-                    update_competition(cid, choice, 0, [student_map[s] for s in selc])
+                    update_competition(cid, current['name'], 0, [student_map[s] for s in selc])
                     st.success("Competition updated.")
                 if st.button("Delete Competition", key="btn_delete_comp"):
                     c.execute("DELETE FROM competition_students WHERE competition_id=?",(cid,))
                     c.execute("DELETE FROM competitions WHERE id=?",(cid,))
                     conn.commit()
-                    st.success(f"Deleted competition '{choice}'")
+                    st.success(f"Deleted competition '{current['name']}'")
     with st.expander("Competitions List", expanded=False):
         compet_df_list = pd.read_sql("SELECT * FROM competitions ORDER BY name", conn)
         if compet_df_list.empty:
@@ -352,53 +358,9 @@ elif menu == "🏆 Competitions":
 # --- Payment Plans Page ---
 elif menu == "💳 Payment Plans":
     st.header("Payment Plans")
-    students_df = get_all_students()
-    student_map = {f"{r['last_name']}, {r['first_name']}":r['id'] for _,r in students_df.iterrows()}
-    sel = st.selectbox("Select Student", ["--"]+list(student_map.keys()), key="pp_student")
-    if sel and sel!="--":
-        sid = student_map[sel]
-        dances = [r['name'] for r in get_dances_for_student(sid).to_dict('records')]
-        competitions = [r['name'] for r in payment_plan.get_competitions_for_student(sid).to_dict('records')]
-        with st.form("payment_plan_form"):
-            st.subheader("Subtotals")
-            tuition_amt = st.number_input("Tuition Subtotal", min_value=0.0, format="%.2f", key="pp_tuition_amt")
-            sdt_amt = st.number_input("Solo/Duo/Trio Subtotal", min_value=0.0, format="%.2f", key="pp_sdt_amt")
-            group_amt = st.number_input("Group Subtotal", min_value=0.0, format="%.2f", key="pp_group_amt")
-            comp_amt = st.number_input("Competitions & Conventions Subtotal", min_value=0.0, format="%.2f", key="pp_comp_amt")
-            choreo_amt = st.number_input("Choreography Subtotal", min_value=0.0, format="%.2f", key="pp_choreo_amt")
-            costume_amt = st.number_input("Costume Fees Subtotal", min_value=0.0, format="%.2f", key="pp_costume_amt")
-            admin_amt = st.number_input("Administrative Fees Subtotal", min_value=0.0, format="%.2f", key="pp_admin_amt")
-            misc_amt = st.number_input("Misc Fees Subtotal", min_value=0.0, format="%.2f", key="pp_misc_amt")
 
-            grand_total = sum([tuition_amt, sdt_amt, group_amt, comp_amt, choreo_amt, costume_amt, admin_amt, misc_amt])
-            st.markdown(f"**Grand Total:** ${grand_total:.2f}")
-
-            st.subheader("Down Payments")
-            down1 = st.number_input("Down Payment 1", min_value=0.0, format="%.2f", key="pp_down1")
-            down2 = st.number_input("Down Payment 2", min_value=0.0, format="%.2f", key="pp_down2")
-            total_down = down1 + down2
-            st.markdown(f"**Total Down:** ${total_down:.2f}")
-
-            remaining = grand_total - total_down
-            st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
-
-            months = st.slider("Number of Months", 6, 10, 6, key="pp_months")
-            st.markdown(f"**Monthly ({months} mo):** ${(remaining/months):.2f}")
-
-            submitted = st.form_submit_button("Save Payment Plan")
-        if submitted:
-            # Persist payment plan via payment_plan module
-            plan_id = payment_plan.add_student_plan(sid, None)
-            # Store subtotals
-            payment_plan.add_plan_item(plan_id, "Tuition", tuition_amt, "Tuition")
-            payment_plan.add_plan_item(plan_id, "Solo/Duo/Trio", sdt_amt, "Solo/Duo/Trio")
-            payment_plan.add_plan_item(plan_id, "Groups", group_amt, "Group")
-            payment_plan.add_plan_item(plan_id, "Competitions & Conventions", comp_amt, "Competition")
-            payment_plan.add_plan_item(plan_id, "Choreography", choreo_amt, "Choreography")
-            payment_plan.add_plan_item(plan_id, "Costume Fees", costume_amt, "Costume")
-            payment_plan.add_plan_item(plan_id, "Administrative Fees", admin_amt, "Administrative")
-            payment_plan.add_plan_item(plan_id, "Misc Fees", misc_amt, "Miscellaneous")
-            st.success("Payment plan saved.")
+    # Stub for future integration
+    st.write("Payment Plans module coming soon...")
 
 else:
     st.info("Select a module from the sidebar.")
