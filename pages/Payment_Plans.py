@@ -77,42 +77,38 @@ with st.expander("Manage Item Catalog", expanded=False):
             st.success(f"Deleted '{sel_item}'")
     st.markdown("---")
 
-    # Display catalog
+        # Display catalog items by category
     for cat in categories:
+        df_cat = get_catalog_items(cat)
+        if not df_cat.empty:
+            st.write(f"**{cat}**")
+            st.table(df_cat[['name', 'price']])
+
+# --- Select Student ---
+st.subheader("Select Student")
+students_df = pd.read_sql("SELECT id, first_name, last_name FROM students ORDER BY last_name, first_name", conn)
+student_map = {f"{r.last_name}, {r.first_name}": r.id for r in students_df.itertuples()}
+sel_student = st.selectbox("Student", ["--"] + list(student_map.keys()), key="select_student")
+
+if sel_student and sel_student != "--":
+    sid = student_map[sel_student]
+    st.header(f"Build Payment Plan for {sel_student}")
+    with st.form("plan_form"):
+        selections = {}
+        subtotals = {}
+        for cat in categories:
             df_items = get_catalog_items(cat)
             options = [f"{row['name']} (${row['price']:.2f})" for _, row in df_items.iterrows()]
-            # Determine defaults based on student associations
-            default_opts = []
-            # Prepopulate number-based categories
-            if cat == "Groups":
-                count = len(payment_plan.get_dances_for_student(sid).query("type=='Group'").to_dict('records'))
-                # find catalog item matching count
-                default_opts = [opt for opt in options if f"{count}" in opt]
-            elif cat == "Solo/Duo/Trio":
-                # count solos+duets+trios
-                d = payment_plan.get_dances_for_student(sid)
-                count = len([t for t in d['type'] if t in ['Solo','Duet','Trio']])
-                default_opts = [opt for opt in options if f"{count}" in opt]
-            elif cat == "Competitions & Conventions":
-                comp = payment_plan.get_competitions_for_student(sid)
-                count = len(comp)
-                default_opts = [opt for opt in options if f"{count}" in opt]
-            # else no default
-            sel_opts = st.multiselect(f"Select {cat}", options, default=default_opts, key=f"sel_{cat}")f"{row['name']} (${row['price']:.2f})" for _, row in df_items.iterrows()]
             sel_opts = st.multiselect(f"Select {cat}", options, key=f"sel_{cat}")
             total = sum(float(opt.split('$')[1].strip(')')) for opt in sel_opts)
             st.write(f"{cat} Subtotal: ${total:.2f}")
             selections[cat] = sel_opts
             subtotals[cat] = total
-        # Down payments and months
-        st.markdown("---")
         down1 = st.number_input("Down Payment 1", min_value=0.0, format="%.2f", key="down1")
         down2 = st.number_input("Down Payment 2", min_value=0.0, format="%.2f", key="down2")
         months = st.slider("Number of Months", min_value=6, max_value=10, value=6, key="months")
-        submitted = st.form_submit_button("Finalize & Generate PDF")
-
+        submitted = st.form_submit_button("Finalize Plan")
     if submitted:
-        # Calculate totals
         grand_total = sum(subtotals.values())
         total_down = down1 + down2
         remaining = grand_total - total_down
@@ -126,23 +122,20 @@ with st.expander("Manage Item Catalog", expanded=False):
                 payment_plan.add_plan_item(plan_id, name, price, cat)
         payment_plan.add_plan_item(plan_id, "Down Payment 1", down1, "Down Payment")
         payment_plan.add_plan_item(plan_id, "Down Payment 2", down2, "Down Payment")
-                # Plan finalized
-        st.success("Payment plan saved successfully.")
-        # Show a summary table of the items
-        summary_rows = []
-        for cat, opts in selections.items():
-            for opt in opts:
-                name = opt.split(' ($')[0]
-                price = float(opt.split('$')[1].strip(')'))
-                summary_rows.append({"Category": cat, "Item": name, "Price": price})
-        # Down payments
-        summary_rows.append({"Category": "Down Payment", "Item": "Down Payment 1", "Price": down1})
-        summary_rows.append({"Category": "Down Payment", "Item": "Down Payment 2", "Price": down2})
-        df_summary = pd.DataFrame(summary_rows)
+        # Display summary
+        st.success("Payment plan saved.")
+        df_summary = pd.DataFrame([
+            {"Category": cat, "Item": opt.split(' ($')[0], "Price": float(opt.split('$')[1].strip(')'))}
+            for cat, opts in selections.items() for opt in opts
+        ] + [
+            {"Category": "Down Payment", "Item": "Down Payment 1", "Price": down1},
+            {"Category": "Down Payment", "Item": "Down Payment 2", "Price": down2}
+        ])
         st.subheader("Plan Summary")
         st.dataframe(df_summary)
-        total_amount = grand_total
-        st.markdown(f"**Grand Total:** ${total_amount:.2f}")
+        st.markdown(f"**Grand Total:** ${grand_total:.2f}")
         st.markdown(f"**Total Down Payments:** ${total_down:.2f}")
         st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
         st.markdown(f"**Installment ({months} mo):** ${installment:.2f}")
+else:
+    st.info("Select a student to begin.")
