@@ -193,14 +193,16 @@ if menu == "📋 Students":
             if df_d.empty:
                 st.write("No dances.")
             else:
-                st.table(df_d)
+                df_d_display = df_d[['name']].rename(columns={'name':'Dance'})
+                st.table(df_d_display)
             # Competitions
             st.write("**Competitions:**")
             df_c = get_competitions_for_student(sid)
             if df_c.empty:
                 st.write("No competitions.")
             else:
-                st.table(df_c)
+                df_c_display = df_c[['name']].rename(columns={'name':'Competition'})
+                st.table(df_c_display)
 
 # Dances Page
 elif menu == "🕺 Dances":
