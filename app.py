@@ -57,7 +57,6 @@ CREATE TABLE IF NOT EXISTS competition_students (
 conn.commit()
 
 # --- DATABASE FUNCTIONS ---
-
 def add_student(first, last, dob):
     c.execute(
         "INSERT INTO students (first_name, last_name, dob) VALUES (?, ?, ?)",
@@ -98,11 +97,11 @@ def update_dance(did, name, student_ids):
 def get_all_dances():
     return pd.read_sql("SELECT * FROM dances ORDER BY type, name", conn)
 
-def get_students_for_dance(dance_id):
+def get_students_for_dance(did):
     return pd.read_sql(
-        "SELECT s.first_name, s.last_name FROM students s"
-        " JOIN dance_students ds ON s.id=ds.student_id"
-        " WHERE ds.dance_id = ?", conn, params=(dance_id,)
+        "SELECT s.first_name || ' ' || s.last_name AS name FROM students s"
+        " JOIN dance_students ds ON s.id = ds.student_id"
+        " WHERE ds.dance_id = ?", conn, params=(did,)
     )
 
 def add_competition(name, has_conv, student_ids):
@@ -136,8 +135,8 @@ def get_all_competitions():
 
 def get_students_for_competition(comp_id):
     return pd.read_sql(
-        "SELECT s.first_name, s.last_name FROM students s"
-        " JOIN competition_students cs ON s.id=cs.student_id"
+        "SELECT s.first_name || ' ' || s.last_name AS name FROM students s"
+        " JOIN competition_students cs ON s.id = cs.student_id"
         " WHERE cs.competition_id = ?", conn, params=(comp_id,)
     )
 
@@ -151,6 +150,7 @@ st.title("Dance Studio Manager")
 # --- Students Page ---
 if menu == "📋 Students":
     with st.expander("Manage Students", expanded=False):
+        # Add student
         with st.form("add_student_form"):
             fn = st.text_input("First Name")
             ln = st.text_input("Last Name")
@@ -158,20 +158,44 @@ if menu == "📋 Students":
             if st.form_submit_button("Add Student"):
                 add_student(fn, ln, dob.isoformat())
                 st.success(f"Added {fn} {ln}")
+        # Edit student
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-        sel = st.selectbox(
-            "Select Student to View", ["--"] + list(student_map.keys())
-        )
+        sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()))
         if sel and sel != "--":
             sid = student_map[sel]
             stu = students_df[students_df.id == sid].iloc[0]
-            st.subheader(f"{stu['first_name']} {stu['last_name']}")
-            st.write(f"**DOB:** {stu['dob']}")
-            st.write("**Dances:**")
-            st.write(get_students_for_dance(sid) or "No dances.")
-            st.write("**Competitions:**")
-            st.write(get_students_for_competition(sid) or "No competitions.")
+            with st.form("edit_student_form"):
+                fn2 = st.text_input("First Name", value=stu['first_name'])
+                ln2 = st.text_input("Last Name", value=stu['last_name'])
+                dob2 = st.date_input("Date of Birth", value=pd.to_datetime(stu['dob']), min_value=date(1900, 1, 1))
+                if st.form_submit_button("Update Student"):
+                    update_student(sid, fn2, ln2, dob2.isoformat())
+                    st.success(f"Updated {fn2} {ln2}")
+    st.markdown("---")
+    # View profile
+    students_df = get_all_students()
+    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+    sel2 = st.selectbox("View Student Profile", ["--"] + list(student_map.keys()))
+    if sel2 and sel2 != "--":
+        sid = student_map[sel2]
+        stu = students_df[students_df.id == sid].iloc[0]
+        st.subheader(f"{stu['first_name']} {stu['last_name']}")
+        st.write(f"**DOB:** {stu['dob']}")
+        # Dances
+        st.write("**Dances:**")
+        df_dances = get_students_for_dance(sid)
+        if df_dances.empty:
+            st.write("No dances.")
+        else:
+            st.write(df_dances)
+        # Competitions
+        st.write("**Competitions:**")
+        df_comps = get_students_for_competition(sid)
+        if df_comps.empty:
+            st.write("No competitions.")
+        else:
+            st.write(df_comps)
 
 # --- Dances Page ---
 elif menu == "🕺 Dances":
@@ -179,45 +203,47 @@ elif menu == "🕺 Dances":
         dance_df = get_all_dances()
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
-        dance_types = dance_df['type'].unique()
+        dance_types = dance_df['type'].unique().tolist()
         cols = st.columns(2)
+        # Create
         with cols[0]:
-            for dtype in dance_types:
-                with st.expander(f"Create {dtype}"):
-                    name = st.text_input("Name", key=f"new_{dtype}")
-                    sel = st.multiselect(
-                        "Students", options=list(student_map.keys()), key=f"new_{dtype}_sel"
-                    )
-                    if st.button(f"Add {dtype}", key=f"btn_new_{dtype}"):
-                        add_dance(name, dtype, [student_map[s] for s in sel])
-                        st.success(f"{dtype} '{name}' created.")
+            st.subheader("Create Dance")
+            name = st.text_input("Name", key="dance_new_name")
+            dtype = st.selectbox("Type", dance_types, key="dance_new_type")
+            sel = st.multiselect("Students", options=list(student_map.keys()), key="dance_new_students")
+            if st.button("Add Dance", key="btn_add_dance"):
+                add_dance(name, dtype, [student_map[s] for s in sel])
+                st.success(f"Dance '{name}' created.")
+        # Edit
         with cols[1]:
-            with st.expander("Edit Dance"):
-                options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
-                choice = st.selectbox(
-                    "Select Dance", ["--"] + list(options.keys()), key="edit_dance_sel"
-                )
-                if choice and choice != "--":
-                    did = options[choice]
-                    curr = get_students_for_dance(did)
-                    selm = st.multiselect(
-                        "Members", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _, r in curr.iterrows()]
-                    )
-                    if st.button("Update Members", key="btn_edit_dance"):
-                        update_dance(did, choice.split(': ')[1], [student_map[s] for s in selm])
-                        st.success("Dance updated.")
-    for dtype in dance_types:
+            st.subheader("Edit Dance")
+            options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
+            choice = st.selectbox("Select Dance", ["--"] + list(options.keys()), key="dance_edit_sel")
+            if choice and choice != "--":
+                did = options[choice]
+                current = dance_df[dance_df.id == did].iloc[0]
+                curr_members = get_students_for_dance(did)['name'].tolist()
+                selm = st.multiselect("Members", options=list(student_map.keys()), default=curr_members, key="dance_edit_members")
+                if st.button("Update Dance", key="btn_edit_dance"):
+                    update_dance(did, choice.split(': ')[1], [student_map[s] for s in selm])
+                    st.success("Dance updated.")
+    # List by type
+    dance_df = get_all_dances()
+    for dtype in dance_df['type'].unique():
         with st.expander(f"{dtype} List", expanded=False):
             sub = dance_df[dance_df.type == dtype].sort_values('name')
             if sub.empty:
                 st.write("No dances.")
             else:
                 for _, d in sub.iterrows():
+                    did = d['id']
                     if dtype == 'Solo':
-                        st.write(d['name'])
+                        df = get_students_for_dance(did)
+                        member = df['name'].iloc[0] if not df.empty else 'Unassigned'
+                        st.write(f"{d['name']} – {member}")
                     else:
-                        if st.button(d['name'], key=f"view_dance_{d['id']}"):
-                            st.write(get_students_for_dance(d['id']))
+                        if st.button(d['name'], key=f"view_dance_{did}"):
+                            st.write(get_students_for_dance(did))
 
 # --- Competitions Page ---
 elif menu == "🏆 Competitions":
@@ -226,29 +252,30 @@ elif menu == "🏆 Competitions":
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
         cols = st.columns(2)
+        # Create
         with cols[0]:
-            with st.expander("Create Competition"):
-                name = st.text_input("Name", key="new_comp")
-                has_conv = st.checkbox("Includes Convention", key="new_conv")
-                sel = st.multiselect("Students", options=list(student_map.keys()), key="new_comp_sel")
-                if st.button("Add Competition", key="btn_new_comp"):
-                    add_competition(name, int(has_conv), [student_map[s] for s in sel])
-                    st.success(f"Competition '{name}' created.")
+            st.subheader("Create Competition")
+            name = st.text_input("Name", key="new_comp")
+            has_conv = st.checkbox("Includes Convention", key="new_conv")
+            sel = st.multiselect("Students", options=list(student_map.keys()), key="new_comp_sel")
+            if st.button("Add Competition", key="btn_new_comp"):
+                add_competition(name, int(has_conv), [student_map[s] for s in sel])
+                st.success(f"Competition '{name}' created.")
+        # Edit
         with cols[1]:
-            with st.expander("Edit Competition"):
-                options = {r['name']: r['id'] for _, r in compet_df.iterrows()}
-                choice = st.selectbox("Select Competition", ["--"] + list(options.keys()), key="edit_comp_sel")
-                if choice and choice != "--":
-                    cid = options[choice]
-                    curr = get_students_for_competition(cid)
-                    selc = st.multiselect(
-                        "Members", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _, r in curr.iterrows()]
-                    )
-                    if st.button("Update Competition", key="btn_edit_comp"):
-                        update_competition(cid, choice, 0, [student_map[s] for s in selc])
-                        st.success("Competition updated.")
+            st.subheader("Edit Competition")
+            options = {r['name']: r['id'] for _, r in compet_df.iterrows()}
+            choice = st.selectbox("Select Competition", ["--"] + list(options.keys()), key="edit_comp_sel")
+            if choice and choice != "--":
+                cid = options[choice]
+                curr = get_students_for_competition(cid)['name'].tolist()
+                selc = st.multiselect("Members", options=list(student_map.keys()), default=curr, key="edit_comp_members")
+                if st.button("Update Competition", key="btn_edit_comp"):
+                    update_competition(cid, choice, 0, [student_map[s] for s in selc])
+                    st.success("Competition updated.")
+    # List
+    compet_df = get_all_competitions()
     with st.expander("Competitions List", expanded=False):
-        compet_df = get_all_competitions()
         if compet_df.empty:
             st.write("No competitions.")
         else:
