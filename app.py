@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 from datetime import date
 import os
+import copy
 
 # Determine absolute path for data directory
 BASE_DIR = os.path.dirname(__file__)
