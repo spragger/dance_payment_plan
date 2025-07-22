@@ -133,7 +133,9 @@ if sel_student and sel_student != "--":
         pdf.cell(40,8,f"${remaining:.2f}",ln=1)
         pdf.cell(120,8,f"Installment ({months} mo)")
         pdf.cell(40,8,f"${installment:.2f}",ln=1)
-        data = pdf.output(dest='S')
+        # Convert PDF string to bytes for Streamlit download
+pdf_str = pdf.output(dest='S')
+data = pdf_str.encode('latin-1')
         st.success("Generated PDF")
         st.download_button("Download PDF", data=data, file_name=f"Plan_{sel_student}.pdf", mime='application/pdf')
 else:
