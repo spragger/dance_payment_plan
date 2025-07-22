@@ -223,33 +223,32 @@ elif menu == "🕺 Dances":
             if st.button("Add Dance", key="btn_add_dance"):
                 add_dance(name, dtype, [student_map[s] for s in sel])
                 st.success(f"Dance '{name}' created.")
-        # Edit
+                # Edit
         with cols[1]:
             st.subheader("Edit Dance")
             options = {f"{r['type']}: {r['name']}": r['id'] for _, r in dance_df.iterrows()}
             choice = st.selectbox("Select Dance", ["--"] + list(options.keys()), key="dance_edit_sel")
             if choice and choice != "--":
                 did = options[choice]
-                dtype = choice.split(': ')[0]
+                current = dance_df[dance_df.id == did].iloc[0]
+                dtype = current['type']
+                # Editable name field
+                new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
+                # Prepare default labels (Last, First) from stored First Last names
                 df_members = get_students_for_dance(did)
-                # Display current members
-                st.write("**Current Members:**")
-                if df_members.empty:
-                    st.write("No members.")
-                else:
-                    members = df_members['name'].tolist()
-                    if dtype == 'Group':
-                        for i, m in enumerate(members, start=1):
-                            st.write(f"{i}. {m}")
-                    else:
-                        for m in members:
-                            st.write(f"- {m}")
+                labels = []
+                for nm in df_members['name'].tolist():
+                    parts = nm.split(' ', 1)
+                    if len(parts) == 2:
+                        labels.append(f"{parts[1]}, {parts[0]}")
                 # Member selection
-                curr = df_members['name'].tolist()
-                selm = st.multiselect("Members", list(student_map.keys()), default=curr, key="dance_edit_members")
+                selm = st.multiselect("Members", options=list(student_map.keys()), default=labels, key="dance_edit_members")
                 if st.button("Update Dance", key="btn_edit_dance"):
-                    update_dance(did, choice.split(': ')[1], [student_map[s] for s in selm])
+                    # Convert selected labels back to IDs
+                    sel_ids = [student_map[s] for s in selm]
+                    update_dance(did, new_name, sel_ids)
                     st.success("Dance updated.")
+
     # Display lists in order
     dance_df = get_all_dances()
     for dtype in ["Solo", "Duet", "Trio", "Group"]:
