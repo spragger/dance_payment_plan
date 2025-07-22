@@ -167,9 +167,34 @@ if menu == "📋 Students":
     students_df = get_all_students()
     student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
 
-    # Add New Student
-    st.subheader("Add New Student")
-    with st.form("add_student_form"):
+    with st.expander("Import & Create/Edit Dances", expanded=False):
+        # Import Dances from CSV
+        st.subheader("Import Dances from CSV")
+        dances_file = st.file_uploader("Upload Dances CSV", type=["csv"], key="dances_csv")
+        if dances_file:
+            df_d_import = pd.read_csv(dances_file)
+            st.dataframe(df_d_import)
+            if st.button("Import Dances", key="btn_import_dances"):
+                for _, row in df_d_import.iterrows():
+                    dtype = row.get('dancetype') or row.get('type')
+                    name = row.get('dancename') or row.get('name')
+                    # any additional columns as dancer labels
+                    student_labels = [row[k] for k in df_d_import.columns if k not in ['dancetype','dancename','type','name'] and pd.notna(row[k])]
+                    ids = []
+                    students_df = get_all_students()
+                    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
+                    for label in student_labels:
+                        if label in student_map:
+                            ids.append(student_map[label])
+                        else:
+                            st.warning(f"Unknown student: {label}")
+                    try:
+                        add_dance(name, dtype, ids)
+                    except Exception as e:
+                        st.error(f"Failed to import dance '{name}': {e}")
+                st.success("Dances imported from CSV.")
+        
+        # Create/Edit Dances
         fn = st.text_input("First Name")
         ln = st.text_input("Last Name")
         dob = st.date_input("Date of Birth", min_value=date(1900,1,1))
