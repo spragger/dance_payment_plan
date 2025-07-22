@@ -36,7 +36,7 @@ import payment_plan
 st.set_page_config(page_title="Payment Plans", layout="wide")
 st.title("Payment Plans")
 
-# --- Manage Catalog ---
+# NOTE: PDF generation is currently disabled. After finalizing the plan, a confirmation will be shown.
 with st.expander("Manage Item Catalog", expanded=False):
     fixed_categories = [
         "Tuition", "Solo/Duo/Trio", "Groups", "Competitions & Conventions",
@@ -127,44 +127,23 @@ if sel_student and sel_student != "--":
                 payment_plan.add_plan_item(plan_id, name, price, cat)
         payment_plan.add_plan_item(plan_id, "Down Payment 1", down1, "Down Payment")
         payment_plan.add_plan_item(plan_id, "Down Payment 2", down2, "Down Payment")
-        # Generate PDF via ReportLab
-        from io import BytesIO
-        from reportlab.pdfgen import canvas
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer)
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(50, 800, f"Payment Plan for {sel_student}")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, 780, f"Date: {datetime.today().strftime('%Y-%m-%d')}")
-        y = 760
-        for cat, total in subtotals.items():
-            p.drawString(50, y, f"{cat}:")
-            p.drawRightString(550, y, f"${total:.2f}")
-            y -= 20
-        y -= 10
-        p.drawString(50, y, "Total Down Payments:")
-        p.drawRightString(550, y, f"-${total_down:.2f}")
-        y -= 20
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, y, "Grand Total:")
-        p.drawRightString(550, y, f"${grand_total:.2f}")
-        y -= 20
-        p.drawString(50, y, "Remaining Balance:")
-        p.drawRightString(550, y, f"${remaining:.2f}")
-        y -= 20
-        p.drawString(50, y, f"Installment ({months} mo):")
-        p.drawRightString(550, y, f"${installment:.2f}")
-        p.showPage()
-        p.save()
-        buffer.seek(0)
-        pdf_bytes = buffer.read()
-        # Download
-        st.success("Generated PDF")
-        st.download_button(
-            "Download Payment Plan PDF",
-            data=pdf_bytes,
-            file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
-            mime='application/pdf'
-        )
-else:
-    st.info("Select a student to begin.")
+                # Plan finalized
+        st.success("Payment plan saved successfully.")
+        # Show a summary table of the items
+        summary_rows = []
+        for cat, opts in selections.items():
+            for opt in opts:
+                name = opt.split(' ($')[0]
+                price = float(opt.split('$')[1].strip(')'))
+                summary_rows.append({"Category": cat, "Item": name, "Price": price})
+        # Down payments
+        summary_rows.append({"Category": "Down Payment", "Item": "Down Payment 1", "Price": down1})
+        summary_rows.append({"Category": "Down Payment", "Item": "Down Payment 2", "Price": down2})
+        df_summary = pd.DataFrame(summary_rows)
+        st.subheader("Plan Summary")
+        st.dataframe(df_summary)
+        total_amount = grand_total
+        st.markdown(f"**Grand Total:** ${total_amount:.2f}")
+        st.markdown(f"**Total Down Payments:** ${total_down:.2f}")
+        st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
+        st.markdown(f"**Installment ({months} mo):** ${installment:.2f}")
