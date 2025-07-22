@@ -158,58 +158,16 @@ def get_competitions_for_student(sid):
         " WHERE cs.student_id = ?", conn, params=(sid,)
     )
 
-# --- Authentication Setup ---
-import streamlit_authenticator as stauth
+# UI Setup
+st.set_page_config(page_title="EDOT Company Manager", layout="wide")
+st.title("EDOT Company Manager")
 
-# Load raw credentials from Streamlit secrets
-raw_creds = st.secrets.get("credentials", {})
-
-# Build a plain credentials dict (avoid mutating st.secrets directly)
-credentials = {"usernames": {}}
-if "users" in raw_creds:
-    for uname, uinfo in raw_creds["users"].items():
-        credentials["usernames"][uname] = {
-            "name": uinfo.get("name"),
-            "email": uinfo.get("email"),
-            "password": uinfo.get("password"),
-        }
-elif "usernames" in raw_creds:
-    for uname, uinfo in raw_creds["usernames"].items():
-        credentials["usernames"][uname] = {
-            "name": uinfo.get("name"),
-            "email": uinfo.get("email"),
-            "password": uinfo.get("password"),
-        }
-else:
-    st.error("No user credentials found. Please define [credentials.users] or [credentials.usernames] in your secrets.")
-    st.stop()
-
-# Cookie configuration
-cookie_conf = raw_creds.get("cookie", {})
-cookie_name = cookie_conf.get("name")
-cookie_key = cookie_conf.get("key")
-expiry_days = cookie_conf.get("expiry_days", 30)
-
-# Initialize authenticator
-authenticator = stauth.Authenticate(
-    credentials,
-    cookie_name,
-    cookie_key,
-    expiry_days,
+# Sidebar navigation
+menu = st.sidebar.radio(
+    "Navigate",
+    ["📋 Students", "🕺 Dances", "🏆 Competitions", "💳 Payment Plans"],
+    index=0,
 )
-
-# Render login/logout
-name, username, auth_status = authenticator.login("Login", "sidebar")
-if auth_status is False:
-    st.error("Username/password is incorrect")
-    st.stop()
-if auth_status is None:
-    st.info("Please enter your credentials to log in.")
-    st.stop()
-
-# Once authenticated, display user in sidebar
-authenticator.logout("Logout", "sidebar")
-st.sidebar.markdown(f"**Logged in as:** {username}")
 
 # UI Setup
 st.set_page_config(page_title="EDOT Company Manager", layout="wide")
