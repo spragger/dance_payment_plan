@@ -75,15 +75,14 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
     pdf.add_page()
     
     # --- FONT SETUP: Use a robust Unicode font ---
-    # This is the key change to handle special characters.
-    # The font is bundled with the fpdf2 library.
     try:
+        # This will now find the DejaVuSans.ttf file you just added
         pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
         pdf.set_font('DejaVu', '', 16)
         FONT_FAMILY = 'DejaVu'
-    except RuntimeError:
-        # Fallback to a standard font if DejaVu is not found
-        st.warning("DejaVu font not found. Falling back to standard font. Special characters may not render correctly.")
+    except FileNotFoundError:
+        # Fallback to a standard font if the file is missing
+        st.warning("DejaVuSans.ttf font not found. Falling back to standard font. Special characters may not render correctly.")
         pdf.set_font('Helvetica', 'B', 16)
         FONT_FAMILY = 'Helvetica'
 
