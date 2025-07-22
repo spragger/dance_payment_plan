@@ -74,10 +74,14 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
     pdf = FPDF()
     pdf.add_page()
     
-    # --- FONT SETUP: Use a robust Unicode font ---
+    # --- FONT SETUP: Use an absolute path to the font file ---
+    # This finds the font file relative to THIS script's location.
+    script_dir = os.path.dirname(__file__)
+    font_path = os.path.join(script_dir, "DejaVuSans.ttf")
+
     try:
-        # This will now find the DejaVuSans.ttf file you just added
-        pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+        # Use the full, absolute path to the font file
+        pdf.add_font('DejaVu', '', font_path, uni=True)
         pdf.set_font('DejaVu', '', 16)
         FONT_FAMILY = 'DejaVu'
     except FileNotFoundError:
@@ -85,7 +89,6 @@ def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, m
         st.warning("DejaVuSans.ttf font not found. Falling back to standard font. Special characters may not render correctly.")
         pdf.set_font('Helvetica', 'B', 16)
         FONT_FAMILY = 'Helvetica'
-
 
     # Title
     pdf.cell(0, 10, f"Payment Plan for {student_name}", 0, 1, "C")
