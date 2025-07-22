@@ -158,12 +158,11 @@ def get_competitions_for_student(sid):
     )
 
 # --- Authentication Setup ---
-import yaml
 import streamlit_authenticator as stauth
 
 # Load user credentials from Streamlit secrets
-# secrets.toml should include a [credentials] section with users and cookie settings
-creds = yaml.safe_load(st.secrets.get("credentials", "{}"))
+# Ensure you have a 'credentials' section in your secrets.toml
+creds = st.secrets.get("credentials", {})
 authenticator = stauth.Authenticate(
     creds.get("users", {}),
     creds.get("cookie", {}).get("name"),
