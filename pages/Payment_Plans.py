@@ -57,6 +57,32 @@ payment_plan = PaymentPlanModule()
 # --- End of Placeholders ---
 
 # --- HELPER FUNCTIONS ---
+def show_print_button():
+    """Adds a button to trigger the browser's print dialog."""
+    print_button_html = """
+    <style>
+    .print-button {
+        background-color: #007bff; /* Blue */
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    </style>
+    <br><br>
+    <button onclick="window.print()" class="print-button">
+        🖨️ Print or Save as PDF
+    </button>
+    """
+    st.components.v1.html(print_button_html, height=100)
+
+
 def get_catalog_categories():
     df = pd.read_sql("SELECT DISTINCT category FROM catalog_items ORDER BY category", conn)
     return df['category'].tolist()
@@ -277,13 +303,11 @@ if sel_student and sel_student != "--":
         st.markdown(f"**Installment ({months} mo):** ${installment:.2f}")
 
     # 2. DISPLAY DOWNLOAD BUTTON IF PDF EXISTS IN SESSION STATE
-    if 'pdf_bytes' in st.session_state:
-        st.download_button(
-            label="Download Plan as PDF 📄",
-            data=st.session_state['pdf_bytes'],
-            file_name=st.session_state['pdf_filename'],
-            mime="application/pdf"
-        )
+# 2. DISPLAY PRINT BUTTON IF A PLAN HAS BEEN FINALIZED
+    if submitted or 'pdf_bytes' in st.session_state:
+        # We can reuse the session state flag to know a plan is ready.
+        show_print_button()
+        
 else:
     # Clear session state if no student is selected
     if 'pdf_bytes' in st.session_state:

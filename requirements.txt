@@ -3,4 +3,3 @@ pandas
 python-dateutil
 streamlit-authenticator
 python-dateutil
-reportlab
