@@ -63,15 +63,15 @@ def update_student(sid, first, last, dob):
 def get_all_students():
     return pd.read_sql("SELECT * FROM students ORDER BY last_name, first_name", conn)
 
-def import_students_from_df(df):
-    for _, row in df.iterrows():
-        add_student(row['First Name'], row['Last Name'], row['DOB'])
-
 def add_dance(name, dtype, student_ids):
     c.execute("INSERT INTO dances (name, type) VALUES (?, ?)", (name, dtype))
     dance_id = c.lastrowid
     for sid in student_ids:
         c.execute("INSERT OR IGNORE INTO dance_students (dance_id, student_id) VALUES (?, ?)", (dance_id, sid))
+    conn.commit()
+
+def update_dance(did, name):
+    c.execute("UPDATE dances SET name=? WHERE id=?", (name, did))
     conn.commit()
 
 def update_dance_members(did, student_ids):
@@ -87,15 +87,16 @@ def get_students_for_dance(did):
     return pd.read_sql(
         "SELECT s.first_name, s.last_name FROM students s JOIN dance_students ds ON s.id=ds.student_id WHERE ds.dance_id=?", conn, params=(did,))
 
-def get_dances_for_student(sid):
-    return pd.read_sql(
-        "SELECT d.name, d.type FROM dances d JOIN dance_students ds ON d.id=ds.dance_id WHERE ds.student_id=?", conn, params=(sid,))
 
 def add_competition(name, has_conv, student_ids):
     c.execute("INSERT INTO competitions (name, has_convention) VALUES (?, ?)", (name, has_conv))
     cid = c.lastrowid
     for sid in student_ids:
         c.execute("INSERT OR IGNORE INTO competition_students (competition_id, student_id) VALUES (?, ?)", (cid, sid))
+    conn.commit()
+
+def update_competition(cid, name, has_conv):
+    c.execute("UPDATE competitions SET name=?, has_convention=? WHERE id=?", (name, has_conv, cid))
     conn.commit()
 
 def update_competition_members(cid, student_ids):
@@ -116,10 +117,18 @@ st.set_page_config(page_title="Dance Studio Manager", layout="wide")
 menu = st.sidebar.selectbox("Navigate", ["📋 Students", "🕺 Dances", "🏆 Competitions"])
 st.title("Dance Studio Manager")
 
+# Preload data
+students_df = get_all_students()
+student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
+dance_df = get_all_dances()
+compet_df = get_all_competitions()
+compet_map = {r['name']: r['id'] for _,r in compet_df.iterrows()}
+
+dance_types = ["Solo", "Duet", "Trio", "Group"]
+
 # --- STUDENTS PAGE ---
 if menu == "📋 Students":
     with st.expander("Manage Students", expanded=False):
-        # Add Student Form
         with st.form("add_student_form"):
             fn = st.text_input("First Name")
             ln = st.text_input("Last Name")
@@ -127,9 +136,6 @@ if menu == "📋 Students":
             if st.form_submit_button("Add Student"):
                 add_student(fn, ln, dob.isoformat())
                 st.success(f"Added {fn} {ln}")
-        # Edit Student Form
-        students_df = get_all_students()
-        student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
         sel = st.selectbox("Select Student to Edit", ["--"] + list(student_map.keys()))
         if sel and sel != "--":
             sid = student_map[sel]
@@ -142,9 +148,6 @@ if menu == "📋 Students":
                     update_student(sid, fn2, ln2, dob2.isoformat())
                     st.success(f"Updated {fn2} {ln2}")
     st.markdown("---")
-    # Profile Viewer
-    students_df = get_all_students()
-    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
     sel2 = st.selectbox("View Student Profile", ["--"] + list(student_map.keys()))
     if sel2 and sel2 != "--":
         sid = student_map[sel2]
@@ -152,10 +155,9 @@ if menu == "📋 Students":
         st.subheader(f"{stu['first_name']} {stu['last_name']}")
         st.write(f"**DOB:** {stu['dob']}")
         st.write("**Dances:**")
-        dd = get_dances_for_student(sid)
+        dd = get_students_for_dance(sid) if False else pd.read_sql("SELECT d.name, d.type FROM dances d JOIN dance_students ds ON d.id=ds.dance_id WHERE ds.student_id=?", conn, params=(sid,))
         st.write(dd if not dd.empty else "No dances.")
         st.write("**Competitions:**")
-        cd = get_all_competitions()
         cc = pd.read_sql(
             "SELECT c.name, c.has_convention FROM competitions c JOIN competition_students cs ON c.id=cs.competition_id WHERE cs.student_id=?", conn, params=(sid,))
         cc['has_convention'] = cc['has_convention'].map({0:'No',1:'Yes'})
@@ -163,12 +165,7 @@ if menu == "📋 Students":
 
 # --- DANCES PAGE ---
 elif menu == "🕺 Dances":
-    dance_df = get_all_dances()
-    dance_types = ["Solo","Duet","Trio","Group"]
-    students_df = get_all_students()
-    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
-
-    with st.expander("Create/Edit Dances", expanded=True):
+    with st.expander("Create/Edit Dances", expanded=False):
         cols = st.columns(2)
         with cols[0]:
             for dtype in dance_types:
@@ -184,13 +181,15 @@ elif menu == "🕺 Dances":
                 choice = st.selectbox("Select Dance", ["--"]+list(options.keys()))
                 if choice and choice != "--":
                     did = options[choice]
-                    members = get_students_for_dance(did)
-                    curr = [f"{r['last_name']}, {r['first_name']}" for _,r in members.iterrows()]
-                    selm = st.multiselect("Members", options=list(student_map.keys()), default=curr)
-                    if st.button("Update", key="upd_dance"):
-                        update_dance_members(did, [student_map[s] for s in selm])
-                        st.success("Updated.")
-    # Lists by type
+                    current_dance = dance_df[dance_df.id==did].iloc[0]
+                    with st.form("edit_dance_form"):
+                        new_name = st.text_input("Dance Name", value=current_dance['name'])
+                        selm = st.multiselect("Members", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _,r in get_students_for_dance(did).iterrows()])
+                        submitted = st.form_submit_button("Update Dance")
+                        if submitted:
+                            update_dance(did, new_name)
+                            update_dance_members(did, [student_map[s] for s in selm])
+                            st.success("Dance updated.")
     for dtype in dance_types:
         sub = dance_df[dance_df.type==dtype].sort_values('name')
         with st.expander(f"{dtype} List", expanded=False):
@@ -206,12 +205,7 @@ elif menu == "🕺 Dances":
 
 # --- COMPETITIONS PAGE ---
 elif menu == "🏆 Competitions":
-    compet_df = get_all_competitions()
-    students_df = get_all_students()
-    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
-    compet_map = {r['name']:r['id'] for _,r in compet_df.iterrows()}
-
-    with st.expander("Create/Edit Competitions", expanded=True):
+    with st.expander("Create/Edit Competitions", expanded=False):
         cols = st.columns(2)
         with cols[0]:
             with st.expander("Create Competition"):
@@ -223,15 +217,20 @@ elif menu == "🏆 Competitions":
                     st.success(f"Competition '{name}' added.")
         with cols[1]:
             with st.expander("Edit Competition"):
-                choice = st.selectbox("Select Competition", ["--"]+list(compet_map.keys()), key="edit_comp")
+                options = compet_map
+                choice = st.selectbox("Select Competition", ["--"]+list(options.keys()), key="edit_comp")
                 if choice and choice!="--":
-                    cid = compet_map[choice]
-                    mem = get_students_for_competition(cid)
-                    curr = [f"{r['last_name']}, {r['first_name']}" for _,r in mem.iterrows()]
-                    selc = st.multiselect("Members", options=list(student_map.keys()), default=curr)
-                    if st.button("Update Competition", key="upd_comp"):
-                        update_competition_members(cid, [student_map[s] for s in selc])
-                        st.success("Updated.")
+                    cid = options[choice]
+                    current_comp = compet_df[compet_df.id==cid].iloc[0]
+                    with st.form("edit_comp_form"):
+                        new_name = st.text_input("Competition Name", value=current_comp['name'])
+                        new_conv = st.checkbox("Convention Included", value=bool(current_comp['has_convention']))
+                        selc = st.multiselect("Members", options=list(student_map.keys()), default=[f"{r['last_name']}, {r['first_name']}" for _,r in get_students_for_competition(cid).iterrows()])
+                        submitted = st.form_submit_button("Update Competition")
+                        if submitted:
+                            update_competition(cid, new_name, int(new_conv))
+                            update_competition_members(cid, [student_map[s] for s in selc])
+                            st.success("Competition updated.")
     with st.expander("Competitions List", expanded=False):
         if compet_df.empty:
             st.write("No competitions.")
