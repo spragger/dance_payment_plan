@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
-
+t
 # PDF generation
 from fpdf import FPDF
 
@@ -54,11 +54,11 @@ st.title("Payment Plans")
 with st.expander("Manage Item Catalog", expanded=False):
     st.subheader("Add Catalog Item")
     categories = get_catalog_categories()
-    new_cat = st.text_input("Category", key="new_cat")
+    category = st.selectbox("Category", categories, key="new_cat")
     item_name = st.text_input("Item Name", key="new_item_name")
     item_price = st.number_input("Item Price", min_value=0.0, format="%.2f", key="new_item_price")
     if st.button("Add Catalog Item", key="btn_add_catalog_item"):
-        cat = new_cat if new_cat else st.selectbox("Or select existing category", categories)
+        cat = category
         if cat and item_name:
             add_catalog_item(cat, item_name, item_price)
             st.success(f"Added item '{item_name}' under '{cat}'")
