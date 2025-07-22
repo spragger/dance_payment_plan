@@ -157,6 +157,33 @@ def get_competitions_for_student(sid):
         " WHERE cs.student_id = ?", conn, params=(sid,)
     )
 
+# --- Authentication Setup ---
+import yaml
+import streamlit_authenticator as stauth
+
+# Load user credentials from Streamlit secrets
+# secrets.toml should include a [credentials] section with users and cookie settings
+creds = yaml.safe_load(st.secrets.get("credentials", "{}"))
+authenticator = stauth.Authenticate(
+    creds.get("users", {}),
+    creds.get("cookie", {}).get("name"),
+    creds.get("cookie", {}).get("key"),
+    creds.get("cookie", {}).get("expiry_days"),
+)
+
+# Render login/logout
+name, username, auth_status = authenticator.login("Login", "sidebar")
+if auth_status is False:
+    st.error("Username/password is incorrect")
+    st.stop()
+if auth_status is None:
+    st.info("Please enter your credentials to log in.")
+    st.stop()
+
+# Once authenticated, display user in sidebar
+authenticator.logout("Logout", "sidebar")
+st.sidebar.markdown(f"**Logged in as:** {username}")
+
 # UI Setup
 st.set_page_config(page_title="EDOT Company Manager", layout="wide")
 st.title("EDOT Company Manager")
@@ -238,16 +265,16 @@ if menu == "📋 Students":
         if df_d.empty:
             st.write("No dances.")
         else:
-            for dance in df_d['name']:
-                st.write(f"- {dance}")
+            for name in df_d['name']:
+                st.write(f"- {name}")
         # Competitions
         st.write("**Competitions:**")
         df_c = get_competitions_for_student(sid)
         if df_c.empty:
             st.write("No competitions.")
         else:
-            for comp in df_c['name']:
-                st.write(f"- {comp}")
+            for name in df_c['name']:
+                st.write(f"- {name}")
 
 # --- Dances Page ---
 elif menu == "🕺 Dances":
@@ -304,38 +331,30 @@ elif menu == "🕺 Dances":
                     st.success(f"Dance '{name}' created.")
         # Edit/Delete Dance
         with cols[1]:
-            st.subheader("Edit / Delete Dance")
-            options = {f"{r['type']}: {r['name']}":r['id'] for _,r in dance_df.iterrows()}
-            choice = st.selectbox("Select Dance to Edit", ["--"]+list(options.keys()), key="dance_edit_sel")
-            if choice and choice!="--":
-                did = options[choice]
-                current = dance_df[dance_df.id==did].iloc[0]
-                dtype = current['type']
-                new_name = st.text_input("Dance Name", value=current['name'], key="edit_dance_name")
-                df_members = get_students_for_dance(did)
+            st.subheader("Edit / Delete Competition")
+            compet_df_local = compet_df.copy()
+            options = {r['name']: r['id'] for _, r in compet_df_local.iterrows()}
+            choice = st.selectbox("Select Competition to Edit", ["--"] + list(options.keys()), key="edit_comp_sel")
+            if choice and choice != "--":
+                cid = options[choice]
+                current = compet_df_local[compet_df_local.id == cid].iloc[0]
+                df_m = get_students_for_competition(cid)
+                # Convert 'First Last' to 'Last, First'
                 labels = []
-                for nm in df_members['name']:
-                    parts = nm.split(' ',1)
-                    if len(parts)==2:
+                for nm in df_m['name']:
+                    parts = nm.split(' ', 1)
+                    if len(parts) == 2:
                         labels.append(f"{parts[1]}, {parts[0]}")
-                selm = st.multiselect("Members", list(student_map.keys()), default=labels, key="dance_edit_members")
-                limits = {"Solo":1, "Duet":2, "Trio":3, "Group":None}
-                max_sel = limits.get(dtype)
-                if st.button("Update Dance", key="btn_edit_dance"):
-                    sel_ids = [student_map[s] for s in selm]
-                    if max_sel is not None and len(sel_ids)!=max_sel:
-                        st.error(f"{dtype} requires exactly {max_sel} student(s).")
-                    else:
-                        update_dance(did, new_name, sel_ids)
-                        st.success("Dance updated.")
-                if st.button("Delete Dance", key="btn_delete_dance"):
-                    delete_dance(did)
-                    st.success(f"Deleted dance '{current['name']}'")
-
-    # Show lists in order
-    all_d = get_all_dances()
-    for dtype in ["Solo","Duet","Trio","Group"]:
-        with st.expander(f"{dtype} List", expanded=False):
+                selc = st.multiselect("Members", list(student_map.keys()), default=labels, key="edit_comp_members")
+                if st.button("Update Competition", key="btn_edit_comp"):
+                    update_competition(cid, current['name'], 0, [student_map[s] for s in selc])
+                    st.success("Competition updated.")
+                if st.button("Delete Competition", key="btn_delete_comp"):
+                    c.execute("DELETE FROM competition_students WHERE competition_id=?", (cid,))
+                    c.execute("DELETE FROM competitions WHERE id=?", (cid,))
+                    conn.commit()
+                    st.success(f"Deleted competition '{current['name']}'")
+    with st.expander("Competitions List", expanded=False):(f"{dtype} List", expanded=False):
             subset = all_d[all_d.type==dtype].sort_values('name')
             if subset.empty:
                 st.write("No dances.")
