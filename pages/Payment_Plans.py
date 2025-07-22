@@ -7,7 +7,7 @@ import streamlit_authenticator as stauth
 
 # --- USER AUTHENTICATION ---
 # Load credentials from st.secrets
-credentials = st.secrets['credentials']
+credentials = st.secrets['credentials'].to_dict()
 cookie_config = st.secrets['cookie']
 
 authenticator = stauth.Authenticate(
