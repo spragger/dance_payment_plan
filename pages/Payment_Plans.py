@@ -164,12 +164,4 @@ if sel_student and sel_student != "--":
             data=pdf_bytes,
             file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
             mime='application/pdf'
-        )(
-            "Download PDF",
-            data=data,
-            file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
-            mime='application/pdf'
         )
-else:
-    st.info("Select a student to begin.")
-    st.info("Select a student to begin.")
