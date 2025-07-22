@@ -127,33 +127,44 @@ if sel_student and sel_student != "--":
                 payment_plan.add_plan_item(plan_id, name, price, cat)
         payment_plan.add_plan_item(plan_id, "Down Payment 1", down1, "Down Payment")
         payment_plan.add_plan_item(plan_id, "Down Payment 2", down2, "Down Payment")
-        # Generate PDF
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, f"Payment Plan for {sel_student}", ln=1)
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, f"Date: {datetime.today().strftime('%Y-%m-%d')}", ln=1)
-        pdf.ln(4)
+                # Generate PDF using ReportLab
+        from io import BytesIO
+        from reportlab.pdfgen import canvas
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer)
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(50, 800, f"Payment Plan for {sel_student}")
+        p.setFont("Helvetica", 12)
+        p.drawString(50, 780, f"Date: {datetime.today().strftime('%Y-%m-%d')}")
+        y = 760
         for cat, total in subtotals.items():
-            pdf.cell(120, 8, cat)
-            pdf.cell(40, 8, f"${total:.2f}", ln=1)
-        pdf.ln(2)
-        pdf.cell(120, 8, "Total Down Payments")
-        pdf.cell(40, 8, f"-${total_down:.2f}", ln=1)
-        pdf.ln(2)
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(120, 8, 'Grand Total')
-        pdf.cell(40, 8, f"${grand_total:.2f}", ln=1)
-        pdf.cell(120, 8, 'Remaining Balance')
-        pdf.cell(40, 8, f"${remaining:.2f}", ln=1)
-        pdf.cell(120, 8, f"Installment ({months} mo)")
-        pdf.cell(40, 8, f"${installment:.2f}", ln=1)
-                # Download button
-        # fpdf.output(dest='S') returns bytes
-        data = pdf.output(dest='S')
+            p.drawString(50, y, f"{cat}:")
+            p.drawRightString(550, y, f"${total:.2f}")
+            y -= 20
+        y -= 10
+        p.drawString(50, y, "Total Down Payments:")
+        p.drawRightString(550, y, f"-${total_down:.2f}")
+        y -= 20
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(50, y, "Grand Total:")
+        p.drawRightString(550, y, f"${grand_total:.2f}")
+        y -= 20
+        p.drawString(50, y, "Remaining Balance:")
+        p.drawRightString(550, y, f"${remaining:.2f}")
+        y -= 20
+        p.drawString(50, y, f"Installment ({months} mo):")
+        p.drawRightString(550, y, f"${installment:.2f}")
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        pdf_bytes = buffer.read()
         st.success("Generated PDF")
         st.download_button(
+            "Download PDF",
+            data=pdf_bytes,
+            file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
+            mime='application/pdf'
+        )(
             "Download PDF",
             data=data,
             file_name=f"PaymentPlan_{sel_student.replace(', ','_')}_{datetime.today().strftime('%Y%m%d')}.pdf",
