@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
-t
+
 # PDF generation
 from fpdf import FPDF
 
