@@ -3,8 +3,7 @@ import sqlite3
 import pandas as pd
 import os
 import io
-from fpdf import FPDF
-from fpdf.enums import XPos, YPos
+from weasyprint import HTML
 
 
 # --- DATABASE CONNECTION ---
@@ -71,71 +70,56 @@ def add_catalog_item(category, name, price):
     conn.commit()
 
 def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, months, installment):
-    """Generates a PDF summary of the payment plan using the modern FPDF API."""
-    pdf = FPDF()
-    pdf.add_page()
+    """Generates a PDF summary using HTML and WeasyPrint."""
 
-    # --- FONT SETUP: Modern API does not use 'uni' parameter ---
-    script_dir = os.path.dirname(__file__)
-    font_path = os.path.join(script_dir, "DejaVuSans.ttf")
-    bold_font_path = os.path.join(script_dir, "DejaVuSans-Bold.ttf")
+    # --- Build the HTML Content ---
+    # We create a single HTML string with embedded CSS for styling.
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            @page {{ margin: 20mm; }}
+            body {{ font-family: sans-serif; font-size: 12px; }}
+            h1 {{ text-align: center; color: #333; }}
+            h2 {{ color: #555; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;}}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background-color: #f2f2f2; }}
+            .summary-table td {{ border: none; text-align: right; padding: 5px; }}
+            .summary-table .label {{ font-weight: bold; }}
+            .total-row td {{ border-top: 1px solid #333; font-weight: bold; font-size: 14px;}}
+        </style>
+    </head>
+    <body>
+        <h1>Payment Plan for {student_name}</h1>
+    """
 
-    try:
-        pdf.add_font('DejaVu', '', font_path)
-        pdf.add_font('DejaVu', 'B', bold_font_path)
-        pdf.set_font('DejaVu', '', 16)
-        FONT_FAMILY = 'DejaVu'
-    except FileNotFoundError:
-        st.warning("DejaVu font files not found. Falling back to standard font.")
-        pdf.set_font('Helvetica', 'B', 16)
-        FONT_FAMILY = 'Helvetica'
-
-
-    # Title - Updated to modern cell positioning API
-    pdf.cell(0, 10, f"Payment Plan for {student_name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-    pdf.ln(10)
-
-    # --- Items Table ---
-    pdf.set_font(FONT_FAMILY, 'B', 12)
-    pdf.cell(130, 10, "Item", border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, align="C")
-    pdf.cell(60, 10, "Price", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-
+    # --- Items Section ---
     items_df = df_summary[~df_summary['Category'].str.contains("Down Payment")]
-
-    # Table Body
     for category in items_df['Category'].unique():
-        pdf.set_font(FONT_FAMILY, 'B', 11)
-        pdf.cell(190, 8, category, border="LR", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-        pdf.set_font(FONT_FAMILY, '', 11)
+        html_content += f"<h2>{category}</h2>"
+        html_content += "<table><tr><th>Item</th><th style='text-align:right;'>Price</th></tr>"
         category_items = items_df[items_df['Category'] == category]
         for _, row in category_items.iterrows():
-            pdf.cell(130, 8, f"  {row['Item']}", border="LR", new_x=XPos.RIGHT, new_y=YPos.TOP)
-            pdf.cell(60, 8, f"${row['Price']:.2f}", border="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
+            html_content += f"<tr><td>{row['Item']}</td><td style='text-align:right;'>${row['Price']:,.2f}</td></tr>"
+        html_content += "</table>"
 
-    pdf.cell(190, 0, "", border="T", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.ln(10)
+    # --- Summary Section ---
+    html_content += "<h2>Plan Summary</h2>"
+    html_content += """
+    <table class='summary-table'>
+        <tr><td class='label'>Grand Total:</td><td>${:,.2f}</td></tr>
+        <tr><td class='label'>Total Down Payments:</td><td>${:,.2f}</td></tr>
+        <tr><td class='label'>Remaining Balance:</td><td>${:,.2f}</td></tr>
+        <tr class='total-row'><td class='label'>Monthly Installment ({:d} mo):</td><td>${:,.2f}</td></tr>
+    </table>
+    """.format(grand_total, total_down, remaining, months, installment)
 
-    # --- Summary Totals ---
-    pdf.set_font(FONT_FAMILY, 'B', 12)
+    html_content += "</body></html>"
 
-    def add_total_line(label, value_str):
-        pdf.cell(130, 8, label, new_x=XPos.RIGHT, new_y=YPos.TOP, align="R")
-        pdf.cell(60, 8, value_str, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
-
-    add_total_line("Grand Total:", f"${grand_total:.2f}")
-    add_total_line("Total Down Payments:", f"${total_down:.2f}")
-    pdf.line(pdf.get_x() + 135, pdf.get_y(), pdf.get_x() + 190, pdf.get_y())
-    add_total_line("Remaining Balance:", f"${remaining:.2f}")
-    pdf.ln(5)
-
-    pdf.set_font(FONT_FAMILY, 'B', 13)
-    add_total_line(f"Monthly Installment ({months} mo):", f"${installment:.2f}")
-
-    # Use an in-memory buffer to ensure correct bytes output
-    buffer = io.BytesIO()
-    pdf.output(buffer)
-    return buffer.getvalue()
+    # --- Generate PDF from HTML ---
+    # WeasyPrint handles the conversion from the HTML string to PDF bytes.
+    return HTML(string=html_content).write_pdf()
 
 # --- UI ---
 st.set_page_config(page_title="Payment Plans", layout="wide")
