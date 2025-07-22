@@ -426,3 +426,81 @@ elif menu == "🏆 Competitions":
 elif menu == "💳 Payment Plans":
     st.header("Payment Plans")
 
+    # 1) Select a student
+    students_df = get_all_students()
+    student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _,r in students_df.iterrows()}
+    sel_student = st.selectbox("Select Student", ["--"] + list(student_map.keys()), key="pp_student")
+    if sel_student and sel_student != "--":
+        sid = student_map[sel_student]
+        # pull their associated dances & competitions
+        dances = get_dances_for_student(sid)['name'].tolist()
+        competitions = get_competitions_for_student(sid)['name'].tolist()
+
+        with st.form("payment_plan_form"):
+            st.subheader("Subtotals")
+
+            # Tuition
+            st.markdown("**Tuition Subtotal**")
+            tuition_sel = [st.selectbox(f"Tuition Item {i+1}", ["--","T1","T2","T3"], key=f"pp_tuition_{i}") for i in range(3)]
+            tuition_amt = st.number_input("Tuition Subtotal", min_value=0.0, format="%.2f", key="pp_tuition_amt")
+
+            # Solo/Duo/Trio
+            st.markdown("**Solo/Duo/Trio Subtotal**")
+            sdt_amt = st.number_input("S/D/T Subtotal", min_value=0.0, format="%.2f", key="pp_sdt_amt")
+
+            # Groups
+            st.markdown("**Group Subtotal**")
+            group_amt = st.number_input("Group Subtotal", min_value=0.0, format="%.2f", key="pp_group_amt")
+
+            # Competitions & Conventions
+            st.markdown("**Competitions & Conventions Subtotal**")
+            comp_amt = st.number_input("Comp/Subtotal", min_value=0.0, format="%.2f", key="pp_comp_amt")
+
+            # Choreography
+            st.markdown("**Choreography Subtotal**")
+            choreo_sel = [st.selectbox(f"Choreo {i+1}", ["--"]+dances, key=f"pp_choreo_{i}") for i in range(10)]
+            choreo_amt = st.number_input("Choreo Subtotal", min_value=0.0, format="%.2f", key="pp_choreo_amt")
+
+            # Costume Fees
+            st.markdown("**Costume Fees Subtotal**")
+            costume_sel = [st.selectbox(f"Costume {i+1}", ["--"]+dances, key=f"pp_costume_{i}") for i in range(10)]
+            costume_amt = st.number_input("Costume Subtotal", min_value=0.0, format="%.2f", key="pp_costume_amt")
+
+            # Administrative Fees
+            st.markdown("**Administrative Fees Subtotal**")
+            admin_sel = [st.selectbox(f"Admin Fee {i+1}", ["--","Fee A","Fee B","Fee C"], key=f"pp_admin_{i}") for i in range(3)]
+            admin_amt = st.number_input("Admin Fees Subtotal", min_value=0.0, format="%.2f", key="pp_admin_amt")
+
+            # Misc Fees
+            st.markdown("**Miscellaneous Fees Subtotal**")
+            misc_sel = [st.selectbox(f"Misc Fee {i+1}", ["--","M1","M2","M3","M4","M5"], key=f"pp_misc_{i}") for i in range(5)]
+            misc_amt = st.number_input("Misc Fees Subtotal", min_value=0.0, format="%.2f", key="pp_misc_amt")
+
+            # Grand total
+            grand_total = sum([tuition_amt, sdt_amt, group_amt, comp_amt, choreo_amt, costume_amt, admin_amt, misc_amt])
+            st.markdown(f"**Grand Total:** ${grand_total:.2f}")
+
+            # Down Payments
+            st.markdown("**Down Payments**")
+            down1 = st.number_input("Down Payment 1", min_value=0.0, format="%.2f", key="pp_down1")
+            down2 = st.number_input("Down Payment 2", min_value=0.0, format="%.2f", key="pp_down2")
+            total_down = down1 + down2
+            st.markdown(f"**Total Down:** ${total_down:.2f}")
+
+            # Remaining Balance
+            remaining = grand_total - total_down
+            st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
+
+            # Payments
+            months = st.slider("Number of Months", 6, 10, 6, key="pp_months")
+            if months:
+                installment = remaining / months
+                st.markdown(f"**Monthly ({months} mo):** ${installment:.2f}")
+
+            submitted_pp = st.form_submit_button("Save Payment Plan")
+
+        if submitted_pp:
+            # Here you can call into payment_plan.add_student_plan() etc.
+            st.success("Payment plan saved.")
+
+
