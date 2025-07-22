@@ -160,6 +160,9 @@ def get_competitions_for_student(sid):
 # --- Authentication Setup ---
 import streamlit_authenticator as stauth
 
+st.write("DEBUG st.secrets:", st.secrets) 
+st.stop()
+
 # Load raw credentials from Streamlit secrets
 raw_creds = st.secrets.get("credentials", {})
 # Transform into the shape expected by streamlit_authenticator
@@ -184,6 +187,7 @@ authenticator = stauth.Authenticate(
     cookie_key,
     expiry_days,
 )
+
 
 # Render login/logout
 name, username, auth_status = authenticator.login("Login", "sidebar")
