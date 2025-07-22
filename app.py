@@ -193,16 +193,22 @@ if menu == "📋 Students":
             if df_d.empty:
                 st.write("No dances.")
             else:
-                df_d_display = df_d[['name']].rename(columns={'name':'Dance'}).reset_index(drop=True)
-                st.dataframe(df_d_display.style.hide_index())
+                if df_d.empty:
+                st.write("No dances.")
+            else:
+                for dance in df_d['name'].tolist():
+                    st.write(f"- {dance}")
             # Competitions
             st.write("**Competitions:**")
             df_c = get_competitions_for_student(sid)
             if df_c.empty:
                 st.write("No competitions.")
             else:
-                df_c_display = df_c[['name']].rename(columns={'name':'Competition'}).reset_index(drop=True)
-                st.dataframe(df_c_display.style.hide_index())
+                if df_c.empty:
+                st.write("No competitions.")
+            else:
+                for comp in df_c['name'].tolist():
+                    st.write(f"- {comp}")
 
 # Dances Page
 elif menu == "🕺 Dances":
