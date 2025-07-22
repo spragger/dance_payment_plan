@@ -193,18 +193,12 @@ if menu == "📋 Students":
             if df_d.empty:
                 st.write("No dances.")
             else:
-                if df_d.empty:
-                st.write("No dances.")
-            else:
                 for dance in df_d['name'].tolist():
                     st.write(f"- {dance}")
             # Competitions
             st.write("**Competitions:**")
             df_c = get_competitions_for_student(sid)
             if df_c.empty:
-                st.write("No competitions.")
-            else:
-                if df_c.empty:
                 st.write("No competitions.")
             else:
                 for comp in df_c['name'].tolist():
