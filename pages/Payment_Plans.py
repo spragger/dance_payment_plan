@@ -6,11 +6,50 @@ from datetime import datetime
 from fpdf import FPDF
 
 # --- DATABASE CONNECTION ---
-BASE_DIR = os.path.dirname(__file__)
-DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
-DB_PATH = os.path.join(DATA_DIR, "dance.db")
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+# Note: For this script to run standalone, you might need to adjust the path.
+# Assuming 'data/dance.db' is in a sibling directory to the app's directory.
+try:
+    BASE_DIR = os.path.dirname(__file__)
+    DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
+    DB_PATH = os.path.join(DATA_DIR, "dance.db")
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+except NameError:
+    # If __file__ is not defined (e.g., in some notebooks), use a relative path
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    DB_PATH = os.path.join("data", "dance.db")
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+
 c = conn.cursor()
+
+# --- Placeholder tables/modules if they don't exist ---
+# This ensures the script can be run for demonstration purposes.
+c.execute('''
+CREATE TABLE IF NOT EXISTS catalog_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT,
+    name TEXT,
+    price REAL
+)''')
+c.execute('''
+CREATE TABLE IF NOT EXISTS students (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT,
+    last_name TEXT
+)''')
+
+# Mock payment_plan module for demonstration
+class PaymentPlanModule:
+    def add_student_plan(self, student_id, other_info):
+        # In a real app, this would insert into a 'plans' table
+        print(f"Creating plan for student_id: {student_id}")
+        return 1 # return a mock plan_id
+    def add_plan_item(self, plan_id, name, price, category):
+        # In a real app, this would insert into a 'plan_items' table
+        print(f"Adding to plan {plan_id}: {name}, {price}, {category}")
+
+payment_plan = PaymentPlanModule()
+# --- End of Placeholders ---
 
 # --- CATALOG FUNCTIONS ---
 def get_catalog_categories():
@@ -29,14 +68,69 @@ def add_catalog_item(category, name, price):
     )
     conn.commit()
 
-# --- PAYMENT PLAN MODULE ---
-import payment_plan
+# --- PDF GENERATOR FUNCTION ---
+def generate_pdf(student_name, df_summary, grand_total, total_down, remaining, months, installment):
+    """Generates a PDF summary of the payment plan."""
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Title
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, f"Payment Plan for {student_name}", 0, 1, "C")
+    pdf.ln(10)
+
+    # --- Items Table ---
+    pdf.set_font("Helvetica", "B", 12)
+    # Table Header
+    pdf.cell(130, 10, "Item", 1, 0, "C")
+    pdf.cell(60, 10, "Price", 1, 1, "C")
+    
+    # Isolate items from down payments for the table body
+    items_df = df_summary[~df_summary['Category'].str.contains("Down Payment")]
+    
+    # Table Body
+    for category in items_df['Category'].unique():
+        pdf.set_font("Helvetica", "B", 11)
+        # Category name as a non-bordered sub-header inside the table
+        pdf.cell(190, 8, category, "LR", 1) 
+        
+        pdf.set_font("Helvetica", "", 11)
+        category_items = items_df[items_df['Category'] == category]
+        for _, row in category_items.iterrows():
+            # Indent item names for clarity
+            pdf.cell(130, 8, f"  {row['Item']}", "LR", 0)
+            pdf.cell(60, 8, f"${row['Price']:.2f}", "R", 1, "R")
+
+    # A line to close the table before totals
+    pdf.cell(190, 0, "", "T", 1)
+    pdf.ln(10)
+
+    # --- Summary Totals ---
+    pdf.set_font("Helvetica", "B", 12)
+    
+    # Function to create a right-aligned summary line
+    def add_total_line(label, value_str):
+        pdf.cell(130, 8, label, 0, 0, "R")
+        pdf.cell(60, 8, value_str, 0, 1, "R")
+
+    add_total_line("Grand Total:", f"${grand_total:.2f}")
+    add_total_line("Total Down Payments:", f"${total_down:.2f}")
+    pdf.line(pdf.get_x() + 135, pdf.get_y(), pdf.get_x() + 190, pdf.get_y()) # Underline
+    add_total_line("Remaining Balance:", f"${remaining:.2f}")
+    pdf.ln(5)
+    
+    # Final Installment line
+    pdf.set_font("Helvetica", "B", 13)
+    add_total_line(f"Monthly Installment ({months} mo):", f"${installment:.2f}")
+
+    # Return PDF as bytes
+    return pdf.output(dest='S').encode('latin-1')
+
 
 # --- UI ---
 st.set_page_config(page_title="Payment Plans", layout="wide")
-st.title("Payment Plans")
+st.title("Payment Plans 💳")
 
-# NOTE: PDF generation is currently disabled. After finalizing the plan, a confirmation will be shown.
 with st.expander("Manage Item Catalog", expanded=False):
     fixed_categories = [
         "Tuition", "Solo/Duo/Trio", "Groups", "Competitions & Conventions",
@@ -54,30 +148,37 @@ with st.expander("Manage Item Catalog", expanded=False):
         if category and item_name:
             add_catalog_item(category, item_name, item_price)
             st.success(f"Added '{item_name}' under '{category}'")
+            st.rerun()
     st.markdown("---")
 
     # Edit or Delete existing item
     st.subheader("Edit / Delete Catalog Item")
     edit_cat = st.selectbox("Select Category to Edit", categories, key="edit_cat")
-    items_df = get_catalog_items(edit_cat)
-    item_map = {row['name']: row['id'] for _, row in items_df.iterrows()}
-    sel_item = st.selectbox("Select Item", ["--"] + list(item_map.keys()), key="edit_item")
-    if sel_item and sel_item != "--":
-        eid = item_map[sel_item]
-        cur = items_df[items_df.id == eid].iloc[0]
-        new_name = st.text_input("New Item Name", value=cur['name'], key="edit_name")
-        new_price = st.number_input("New Item Price", value=cur['price'], min_value=0.0, format="%.2f", key="edit_price")
-        if st.button("Update Item", key="btn_update_item"):
-            c.execute("UPDATE catalog_items SET name=?, price=? WHERE id=?", (new_name, new_price, eid))
-            conn.commit()
-            st.success(f"Updated '{sel_item}' -> '{new_name}'")
-        if st.button("Delete Item", key="btn_delete_item"):
-            c.execute("DELETE FROM catalog_items WHERE id=?", (eid,))
-            conn.commit()
-            st.success(f"Deleted '{sel_item}'")
+    if edit_cat:
+        items_df = get_catalog_items(edit_cat)
+        item_map = {f"{row['name']} (${row['price']:.2f})": row['id'] for _, row in items_df.iterrows()}
+        sel_item_display = st.selectbox("Select Item", ["--"] + list(item_map.keys()), key="edit_item")
+        if sel_item_display and sel_item_display != "--":
+            eid = item_map[sel_item_display]
+            cur = items_df[items_df.id == eid].iloc[0]
+            new_name = st.text_input("New Item Name", value=cur['name'], key="edit_name")
+            new_price = st.number_input("New Item Price", value=cur['price'], min_value=0.0, format="%.2f", key="edit_price")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Update Item", key="btn_update_item", use_container_width=True):
+                    c.execute("UPDATE catalog_items SET name=?, price=? WHERE id=?", (new_name, new_price, eid))
+                    conn.commit()
+                    st.success(f"Updated '{cur['name']}' -> '{new_name}'")
+                    st.rerun()
+            with col2:
+                if st.button("Delete Item", type="primary", key="btn_delete_item", use_container_width=True):
+                    c.execute("DELETE FROM catalog_items WHERE id=?", (eid,))
+                    conn.commit()
+                    st.warning(f"Deleted '{cur['name']}'")
+                    st.rerun()
     st.markdown("---")
 
-        # Display catalog items by category
+    # Display catalog items by category
     for cat in categories:
         df_cat = get_catalog_items(cat)
         if not df_cat.empty:
@@ -87,6 +188,13 @@ with st.expander("Manage Item Catalog", expanded=False):
 # --- Select Student ---
 st.subheader("Select Student")
 students_df = pd.read_sql("SELECT id, first_name, last_name FROM students ORDER BY last_name, first_name", conn)
+if students_df.empty:
+    st.info("No students in the database. Please add students via the main student management page.")
+    # Add a mock student for demonstration if the db is empty
+    c.execute("INSERT INTO students (first_name, last_name) VALUES (?, ?)", ("Jane", "Doe"))
+    conn.commit()
+    st.rerun()
+    
 student_map = {f"{r.last_name}, {r.first_name}": r.id for r in students_df.itertuples()}
 sel_student = st.selectbox("Student", ["--"] + list(student_map.keys()), key="select_student")
 
@@ -98,22 +206,29 @@ if sel_student and sel_student != "--":
         subtotals = {}
         for cat in categories:
             df_items = get_catalog_items(cat)
-            options = [f"{row['name']} (${row['price']:.2f})" for _, row in df_items.iterrows()]
-            sel_opts = st.multiselect(f"Select {cat}", options, key=f"sel_{cat}")
-            total = sum(float(opt.split('$')[1].strip(')')) for opt in sel_opts)
-            st.write(f"{cat} Subtotal: ${total:.2f}")
-            selections[cat] = sel_opts
-            subtotals[cat] = total
+            if not df_items.empty:
+                options = [f"{row['name']} (${row['price']:.2f})" for _, row in df_items.iterrows()]
+                sel_opts = st.multiselect(f"Select {cat}", options, key=f"sel_{cat}")
+                total = sum(float(opt.split('$')[1].strip(')')) for opt in sel_opts)
+                if total > 0:
+                    st.write(f"*{cat} Subtotal: ${total:.2f}*")
+                selections[cat] = sel_opts
+                subtotals[cat] = total
+        
+        st.markdown("---")
         down1 = st.number_input("Down Payment 1", min_value=0.0, format="%.2f", key="down1")
         down2 = st.number_input("Down Payment 2", min_value=0.0, format="%.2f", key="down2")
-        months = st.slider("Number of Months", min_value=6, max_value=10, value=6, key="months")
+        months = st.slider("Number of Months", min_value=1, max_value=12, value=10, key="months")
+        
         submitted = st.form_submit_button("Finalize Plan")
+
     if submitted:
         grand_total = sum(subtotals.values())
         total_down = down1 + down2
         remaining = grand_total - total_down
-        installment = remaining / months if months else 0.0
-        # Persist
+        installment = remaining / months if months > 0 else 0.0
+        
+        # Persist data using the payment_plan module
         plan_id = payment_plan.add_student_plan(sid, None)
         for cat, opts in selections.items():
             for opt in opts:
@@ -122,7 +237,8 @@ if sel_student and sel_student != "--":
                 payment_plan.add_plan_item(plan_id, name, price, cat)
         payment_plan.add_plan_item(plan_id, "Down Payment 1", down1, "Down Payment")
         payment_plan.add_plan_item(plan_id, "Down Payment 2", down2, "Down Payment")
-        # Display summary
+        
+        # --- Display summary on the page ---
         st.success("Payment plan saved.")
         df_summary = pd.DataFrame([
             {"Category": cat, "Item": opt.split(' ($')[0], "Price": float(opt.split('$')[1].strip(')'))}
@@ -131,11 +247,39 @@ if sel_student and sel_student != "--":
             {"Category": "Down Payment", "Item": "Down Payment 1", "Price": down1},
             {"Category": "Down Payment", "Item": "Down Payment 2", "Price": down2}
         ])
+        
+        # Filter out rows with 0 price unless it's an intended item
+        df_summary = df_summary[df_summary['Price'] > 0]
+        
         st.subheader("Plan Summary")
         st.dataframe(df_summary)
         st.markdown(f"**Grand Total:** ${grand_total:.2f}")
         st.markdown(f"**Total Down Payments:** ${total_down:.2f}")
         st.markdown(f"**Remaining Balance:** ${remaining:.2f}")
         st.markdown(f"**Installment ({months} mo):** ${installment:.2f}")
+
+        # --- PDF GENERATION AND DOWNLOAD BUTTON ---
+        
+        # 1. Generate the PDF in memory
+        pdf_bytes = generate_pdf(
+            student_name=sel_student,
+            df_summary=df_summary,
+            grand_total=grand_total,
+            total_down=total_down,
+            remaining=remaining,
+            months=months,
+            installment=installment
+        )
+        
+        # 2. Create a clean filename
+        pdf_filename = f"Payment_Plan_{sel_student.replace(', ', '_').replace(' ', '_')}.pdf"
+        
+        # 3. Add the download button
+        st.download_button(
+            label="Download Plan as PDF 📄",
+            data=pdf_bytes,
+            file_name=pdf_filename,
+            mime="application/pdf"
+        )
 else:
     st.info("Select a student to begin.")
