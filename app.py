@@ -190,6 +190,20 @@ if menu == "📋 Students":
     students_df = get_all_students()
     student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
 
+    # Import Students from CSV
+    st.subheader("Import Students from CSV")
+    students_file = st.file_uploader("Upload Students CSV", type="csv", key="students_csv")
+    if students_file:
+        df_import = pd.read_csv(students_file)
+        st.dataframe(df_import)
+        if st.button("Import Students from CSV", key="btn_import_students"):
+            for _, row in df_import.iterrows():
+                try:
+                    add_student(row['first'], row['last'], row['dob'])
+                except Exception as e:
+                    st.error(f"Error adding {row}: {e}")
+            st.success("Students imported.")
+
     # Add New Student
     st.subheader("Add New Student")
     with st.form("add_student_form"):
@@ -260,7 +274,28 @@ if menu == "📋 Students":
 elif menu == "🕺 Dances":
     st.header("Dances")
     # Create/Edit section
-    with st.expander("Create/Edit Dances", expanded=False):
+    with st.expander("Import & Create/Edit Dances", expanded=False):
+        # Import Dances from CSV
+        st.subheader("Import Dances from CSV")
+        dances_file = st.file_uploader("Upload Dances CSV", type="csv", key="dances_csv")
+        if dances_file:
+            df_d_import = pd.read_csv(dances_file)
+            st.dataframe(df_d_import)
+            if st.button("Import Dances from CSV", key="btn_import_dances"):
+                for _, row in df_d_import.iterrows():
+                    dtype = row['dancetype']
+                    name = row['dancename']
+                    # collect dancer labels from other columns
+                    labels = [row[col] for col in df_d_import.columns if col not in ['dancetype','dancename'] and pd.notna(row[col])]
+                    ids = []
+                    for label in labels:
+                        if label in student_map:
+                            ids.append(student_map[label])
+                        else:
+                            st.warning(f"Unknown student '{label}'")
+                    add_dance(name, dtype, ids)
+                st.success("Dances imported.")
+        # Create/Edit section
         dance_df = get_all_dances()
         students_df = get_all_students()
         student_map = {f"{r['last_name']}, {r['first_name']}": r['id'] for _, r in students_df.iterrows()}
