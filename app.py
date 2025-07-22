@@ -160,14 +160,29 @@ def get_competitions_for_student(sid):
 # --- Authentication Setup ---
 import streamlit_authenticator as stauth
 
-# Load user credentials from Streamlit secrets
-# Ensure you have a 'credentials' section in your secrets.toml
-creds = st.secrets.get("credentials", {})
+# Load raw credentials from Streamlit secrets
+raw_creds = st.secrets.get("credentials", {})
+# Transform into the shape expected by streamlit_authenticator
+if "users" in raw_creds:
+    credentials = {"usernames": raw_creds["users"]}
+elif "usernames" in raw_creds:
+    credentials = {"usernames": raw_creds["usernames"]}
+else:
+    st.error("No user credentials found. Please define [credentials.users] or [credentials.usernames] in your secrets.")
+    st.stop()
+
+# Cookie configuration
+cookie_conf = raw_creds.get("cookie", {})
+cookie_name = cookie_conf.get("name")
+cookie_key = cookie_conf.get("key")
+expiry_days = cookie_conf.get("expiry_days", 30)
+
+# Initialize authenticator
 authenticator = stauth.Authenticate(
-    creds.get("users", {}),
-    creds.get("cookie", {}).get("name"),
-    creds.get("cookie", {}).get("key"),
-    creds.get("cookie", {}).get("expiry_days"),
+    credentials,
+    cookie_name,
+    cookie_key,
+    expiry_days,
 )
 
 # Render login/logout
