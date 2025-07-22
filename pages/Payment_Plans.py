@@ -111,7 +111,7 @@ if sel_student and sel_student != "--":
                 payment_plan.add_plan_item(plan_id, name, price, cat)
         payment_plan.add_plan_item(plan_id, "Down 1", down1, "Down Payment")
         payment_plan.add_plan_item(plan_id, "Down 2", down2, "Down Payment")
-        # PDF
+                # PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font('Arial','B',16)
@@ -133,10 +133,16 @@ if sel_student and sel_student != "--":
         pdf.cell(40,8,f"${remaining:.2f}",ln=1)
         pdf.cell(120,8,f"Installment ({months} mo)")
         pdf.cell(40,8,f"${installment:.2f}",ln=1)
-        # Convert PDF string to bytes for Streamlit download
-pdf_str = pdf.output(dest='S')
-data = pdf_str.encode('latin-1')
+        # Convert to bytes and download
+        pdf_str = pdf.output(dest='S')
+        data = pdf_str.encode('latin-1')
         st.success("Generated PDF")
-        st.download_button("Download PDF", data=data, file_name=f"Plan_{sel_student}.pdf", mime='application/pdf')
+        st.download_button(
+            "Download PDF",
+            data=data,
+            file_name=f"Plan_{sel_student}.pdf",
+            mime='application/pdf'
+        )
 else:
+    st.info("Select a student to begin.")
     st.info("Select a student to begin.")
